@@ -69,6 +69,7 @@ typedef enum
   UI_SCR_FILTER,
   UI_SCR_COLOR,
   UI_SCR_FPS,
+  UI_SCR_GRID,
   UI_SCR_OVERLAY,
 
   UI_PERF_CPU,
@@ -106,6 +107,7 @@ typedef enum
   UI_D_FILTER,
   UI_D_COLOR,
   UI_D_FPS,
+  UI_D_GRID,
   UI_D_OVERLAY,
   UI_D_CPU,
   UI_D_FSKIP,

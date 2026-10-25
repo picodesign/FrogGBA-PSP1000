@@ -31,6 +31,7 @@
 #define CONFIG_EXTRA_MAGIC    (0x5150)
 
 extern u32 option_font;
+extern u32 option_lcd_grid;
 
 #define COLOR_BG            COLOR15( 8, 15, 12)  // Soft mint green background
 #define COLOR_ROM_INFO      COLOR15(18, 28, 22)  // Darker mint for ROM info
@@ -45,10 +46,23 @@ extern u32 option_font;
 #define COLOR_BATT_LOW      COLOR15(28, 22, 8)   // Pastel amber for low battery
 #define COLOR_BATT_CHARG    COLOR15(16, 28, 18)  // Brighter mint for charging
 
-#define FILE_LIST_ROWS      (20)
-#define FILE_LIST_POS_X     (18)
-#define FILE_LIST_POS_Y     (16)
-#define DIR_LIST_POS_X      (360)
+// Palette shared by the tabbed menu, the file browser and the start screen
+#define TAB_COLOR_BG     COLOR15( 7, 14, 11)
+#define TAB_COLOR_BAR    COLOR15( 5, 10,  8)
+#define TAB_COLOR_PANEL  COLOR15( 6, 11,  9)
+#define TAB_COLOR_LINE   COLOR15(11, 19, 15)
+#define TAB_COLOR_TEXT   COLOR15(26, 30, 28)
+#define TAB_COLOR_DIM    COLOR15(17, 24, 20)
+#define TAB_COLOR_HI_BG  COLOR15(31, 31, 28)
+#define TAB_COLOR_HI_FG  COLOR15( 4,  8,  7)
+
+#define FILE_LIST_ROWS      (16)
+#define FILE_LIST_ROW_H     (14)
+#define FILE_LIST_POS_X     (14)
+#define FILE_LIST_POS_Y     (24)
+#define FILE_LIST_CHARS     (54)
+#define DIR_LIST_POS_X      (364)
+#define DIR_LIST_CHARS      (17)
 #define PAGE_SCROLL_NUM     (10)
 
 #define MENU_LIST_POS_X     (18)
@@ -61,16 +75,16 @@ extern u32 option_font;
 #define DIR_NAME_LENGTH     ((TIME_STATUS_POS_X / FONTWIDTH) - 2)  // 42
 
 // scroll bar
-#define SBAR_X1  (2)
-#define SBAR_X2  (12)
-#define SBAR_Y1  (16)
-#define SBAR_Y2  (255)
+#define SBAR_X1  (351)
+#define SBAR_X2  (355)
+#define SBAR_Y1  (20)
+#define SBAR_Y2  (249)
 
 #define SBAR_T   (SBAR_Y1 + 2)
 #define SBAR_B   (SBAR_Y2 - 2)
 #define SBAR_H   (SBAR_B - SBAR_T)
-#define SBAR_X1I (SBAR_X1 + 2)
-#define SBAR_X2I (SBAR_X2 - 2)
+#define SBAR_X1I (SBAR_X1)
+#define SBAR_X2I (SBAR_X2)
 #define SBAR_Y1I (SBAR_H * scroll_value[0] / num[0] + SBAR_T)
 #define SBAR_Y2I (SBAR_H * (scroll_value[0] + FILE_LIST_ROWS) / num[0] + SBAR_T)
 
@@ -293,6 +307,7 @@ u32 option_quickplay = 1;
 u32 option_recent_list = 0;
 #define CONFIG_BIT_NO_QUICKPLAY  (1 << 2)
 #define CONFIG_BIT_RECENTS       (1 << 3)
+#define CONFIG_GRID_SHIFT        (4)  /* bits 4-5: LCD grid 0..2 */
 static char recent_games[MAX_RECENT_GAMES][MAX_PATH];
 static int num_recent_games = 0;
 static const char *recent_games_display[MAX_RECENT_GAMES];
@@ -965,71 +980,93 @@ s32 load_file(const char **wildcards, char *result, char *default_dir_name)
 
     while (repeat)
     {
-      clear_screen(COLOR15_TO_32(COLOR_BG));
-		print_string(current_dir_short, 6, 2, COLOR_HELP_TEXT, BG_NO_FILL);
-      if ((counter % 30) == 0)
-	  {
-	    update_status_string(time_str, batt_str, &color_batt_life);
-	  }
-      counter++;
-	  print_string(time_str, TIME_STATUS_POS_X, 2, COLOR_HELP_TEXT, BG_NO_FILL);
- 
-	  print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
+      clear_screen(COLOR15_TO_32(TAB_COLOR_BG));
 
-	  print_string(MSG[MSG_BROWSER_HELP], 30, 258, COLOR_HELP_TEXT, BG_NO_FILL);
+      if ((counter % 30) == 0)
+        update_status_string(time_str, batt_str, &color_batt_life);
+      counter++;
+
+      draw_box_fill(0, 0, 479, 16, TAB_COLOR_BAR);
+      print_string(current_dir_short, 6, 2, TAB_COLOR_TEXT, BG_NO_FILL);
+      print_string(time_str, TIME_STATUS_POS_X, 2, TAB_COLOR_DIM, BG_NO_FILL);
+      print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
+
+      draw_box_fill(4, 20, 349, 249, TAB_COLOR_PANEL);
+      draw_box_fill(358, 20, 475, 249, TAB_COLOR_PANEL);
+
+      draw_box_fill(0, 250, 479, 271, TAB_COLOR_BAR);
+      print_string(MSG[MSG_BROWSER_HELP], 30, 256, TAB_COLOR_DIM, BG_NO_FILL);
 
       // Show mod credit instead of ROM Buffer
-      print_string("FrogGBA - TempGBA mod by Prosty", 270, 258, COLOR_HELP_TEXT, BG_NO_FILL);
+      print_string("FrogGBA - TempGBA mod by Prosty", 270, 256, TAB_COLOR_LINE, BG_NO_FILL);
 
       // PSP controller - hold
       if (get_pad_input(PSP_CTRL_HOLD) != 0)
-		{
-		print_string(FONT_KEY_ICON_GBK, 6, 258, COLOR15_YELLOW, BG_NO_FILL);
-		}
+        print_string(FONT_KEY_ICON_GBK, 6, 256, COLOR15_YELLOW, BG_NO_FILL);
+
       // draw scroll bar
       if (num[FILE_LIST] > FILE_LIST_ROWS)
       {
-        draw_box_line(SBAR_X1,  SBAR_Y1,  SBAR_X2,  SBAR_Y2,  COLOR_SCROLL_BAR);
-        draw_box_fill(SBAR_X1I, SBAR_Y1I, SBAR_X2I, SBAR_Y2I, COLOR_SCROLL_BAR);
+        draw_box_fill(SBAR_X1, SBAR_Y1, SBAR_X2, SBAR_Y2, TAB_COLOR_BAR);
+        draw_box_fill(SBAR_X1I, SBAR_Y1I, SBAR_X2I, SBAR_Y2I, TAB_COLOR_HI_BG);
       }
 
       for (i = 0; i < FILE_LIST_ROWS; i++)
       {
+        u32 row_y = FILE_LIST_POS_Y + (i * FILE_LIST_ROW_H);
+        char clipped[FILE_LIST_CHARS + 1];
+
         current_file_number = i + scroll_value[FILE_LIST];
 
         if (current_file_number < num[FILE_LIST])
         {
-          if ((current_file_number == selection[FILE_LIST]) && (column == FILE_LIST))
-            current_line_color = COLOR_ACTIVE_ITEM;
-          else
-            current_line_color = COLOR_INACTIVE_ITEM;
+          const char *entry = file_list[current_file_number];
+          u16 fg = TAB_COLOR_TEXT;
 
-          print_string(file_list[current_file_number], FILE_LIST_POS_X, FILE_LIST_POS_Y + (i * FONTHEIGHT), current_line_color, BG_NO_FILL);
+          if (current_file_number == selection[FILE_LIST])
+          {
+            draw_box_fill(6, row_y - 2, 347, row_y + 11, (column == FILE_LIST) ? TAB_COLOR_HI_BG : TAB_COLOR_LINE);
+            fg = (column == FILE_LIST) ? TAB_COLOR_HI_FG : TAB_COLOR_TEXT;
+          }
+          else if (strncmp(entry, "---", 3) == 0)
+            fg = TAB_COLOR_DIM;
+
+          strncpy(clipped, entry, FILE_LIST_CHARS);
+          clipped[FILE_LIST_CHARS] = 0;
+          print_string(clipped, FILE_LIST_POS_X, row_y, fg, BG_NO_FILL);
         }
       }
 
       for (i = 0; i < FILE_LIST_ROWS; i++)
       {
+        u32 row_y = FILE_LIST_POS_Y + (i * FILE_LIST_ROW_H);
+        char clipped[DIR_LIST_CHARS + 1];
+
         current_dir_number = i + scroll_value[DIR_LIST];
 
         if (current_dir_number < num[DIR_LIST])
         {
-          if ((current_dir_number == selection[DIR_LIST]) && (column == DIR_LIST))
-            current_line_color = COLOR_ACTIVE_ITEM;
-          else
-            current_line_color = COLOR_INACTIVE_DIR;
+          u16 fg = TAB_COLOR_DIM;
 
-          print_string(dir_list[current_dir_number], DIR_LIST_POS_X, FILE_LIST_POS_Y + (i * FONTHEIGHT), current_line_color, COLOR_BG);
+          if (current_dir_number == selection[DIR_LIST])
+          {
+            draw_box_fill(360, row_y - 2, 473, row_y + 11, (column == DIR_LIST) ? TAB_COLOR_HI_BG : TAB_COLOR_LINE);
+            fg = (column == DIR_LIST) ? TAB_COLOR_HI_FG : TAB_COLOR_TEXT;
+          }
+
+          strncpy(clipped, dir_list[current_dir_number], DIR_LIST_CHARS);
+          clipped[DIR_LIST_CHARS] = 0;
+          print_string(clipped, DIR_LIST_POS_X, row_y, fg, BG_NO_FILL);
         }
       }
 
       if (num[DIR_LIST] > FILE_LIST_ROWS)
       {
         if (scroll_value[DIR_LIST] != 0)
-          print_string(FONT_CURSOR_UP_FILL, PSP_SCREEN_WIDTH - (FONTWIDTH * 2), FILE_LIST_POS_Y, COLOR_SCROLL_BAR, COLOR_BG);
+          print_string(FONT_CURSOR_UP_FILL, PSP_SCREEN_WIDTH - (FONTWIDTH * 2), FILE_LIST_POS_Y, TAB_COLOR_DIM, BG_NO_FILL);
 
         if (num[DIR_LIST] > (scroll_value[DIR_LIST] + FILE_LIST_ROWS))
-          print_string(FONT_CURSOR_DOWN_FILL, PSP_SCREEN_WIDTH - (FONTWIDTH * 2), FILE_LIST_POS_Y + ((FILE_LIST_ROWS - 1) * FONTHEIGHT), COLOR_SCROLL_BAR, COLOR_BG);
+          print_string(FONT_CURSOR_DOWN_FILL, PSP_SCREEN_WIDTH - (FONTWIDTH * 2), FILE_LIST_POS_Y + ((FILE_LIST_ROWS - 1) * FILE_LIST_ROW_H), TAB_COLOR_DIM, BG_NO_FILL);
       }
 
       __draw_volume_status(1);
@@ -1421,6 +1458,13 @@ u32 menu(void)
     "SHARP"
   };
 
+  const char *lcd_grid_options[] =
+  {
+    MSG[MSG_OFF],
+    FR("Light", "L\001g\001re"),
+    FR("Strong", "Forte")
+  };
+
   const char *scale_options[] =
   {
     MSG[MSG_SCN_SCALED_NONE],
@@ -1779,6 +1823,7 @@ u32 menu(void)
 	option_auto_save_state = 0; // Default to off
 	option_quickplay = 1;
 	option_recent_list = 0;
+	option_lcd_grid = 0;
 	psp_fps_debug = 0;
 	option_frameskip_type = FRAMESKIP_AUTO;
 	option_frameskip_value = 9;
@@ -1925,7 +1970,7 @@ u32 menu(void)
         savestate_slot = current_option_num;
         menu_change_state();
       }
-	print_string(MSG[savestate_action ? MSG_SAVE : MSG_LOAD], MENU_LIST_POS_X + ((strlen(savestate_timestamps[0]) + 1) * FONTWIDTH), (current_option_num * FONTHEIGHT) + 28, COLOR_ACTIVE_ITEM, BG_NO_FILL);
+	print_string(MSG[savestate_action ? MSG_SAVE : MSG_LOAD], MENU_LIST_POS_X + ((strlen(savestate_timestamps[0]) + 1) * FONTWIDTH), (current_option_num * FONTHEIGHT) + 28, TAB_COLOR_HI_FG, BG_NO_FILL);
     }
   }
 
@@ -2198,15 +2243,6 @@ u32 menu(void)
 
   #define TAB_COUNT 5
 
-  #define TAB_COLOR_BG     COLOR15( 7, 14, 11)
-  #define TAB_COLOR_BAR    COLOR15( 5, 10,  8)
-  #define TAB_COLOR_PANEL  COLOR15( 6, 11,  9)
-  #define TAB_COLOR_LINE   COLOR15(11, 19, 15)
-  #define TAB_COLOR_TEXT   COLOR15(26, 30, 28)
-  #define TAB_COLOR_DIM    COLOR15(17, 24, 20)
-  #define TAB_COLOR_HI_BG  COLOR15(31, 31, 28)
-  #define TAB_COLOR_HI_FG  COLOR15( 4,  8,  7)
-
   #define TAB_LIST_Y       (48)
   #define TAB_ROW_HEIGHT   (20)
   #define TAB_PANEL_X      (232)
@@ -2260,7 +2296,8 @@ u32 menu(void)
     TAB_STRING(UI(UI_SCR_FILTER), UI(UI_D_FILTER), screen_filter_options, &option_screen_filter, 3, 3),
     TAB_STRING(UI(UI_SCR_COLOR), UI(UI_D_COLOR), color_correction_options, &option_color_correction, 3, 4),
     TAB_STRING(UI(UI_SCR_FPS), UI(UI_D_FPS), on_off_options, &psp_fps_debug, 2, 5),
-    TAB_SUBMENU(&overlay_menu_global, UI(UI_SCR_OVERLAY), UI(UI_D_OVERLAY), 6)
+    TAB_STRING(UI(UI_SCR_GRID), UI(UI_D_GRID), lcd_grid_options, &option_lcd_grid, 3, 6),
+    TAB_SUBMENU(&overlay_menu_global, UI(UI_SCR_OVERLAY), UI(UI_D_OVERLAY), 7)
   };
   MAKE_MENU(tab_screen, NULL, NULL);
 
@@ -2612,7 +2649,7 @@ u32 menu(void)
 
   while (repeat)
   {
-    clear_screen(COLOR15_TO_32(is_tab_menu(current_menu) ? TAB_COLOR_BG : COLOR_BG));
+    clear_screen(COLOR15_TO_32(TAB_COLOR_BG));
 
     if ((counter % 30) == 0)
 	{
@@ -2626,49 +2663,56 @@ u32 menu(void)
     }
     else
     {
-	print_string(time_str, TIME_STATUS_POS_X, 2, COLOR_HELP_TEXT, BG_NO_FILL);
+      draw_box_fill(0, 0, 479, 16, TAB_COLOR_BAR);
+      print_string(time_str, TIME_STATUS_POS_X, 2, TAB_COLOR_DIM, BG_NO_FILL);
+      print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
 
-	print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
+      draw_box_fill(0, 250, 479, 271, TAB_COLOR_BAR);
 
-    print_string(game_title, 228, 28, COLOR_INACTIVE_ITEM, BG_NO_FILL);
-    blit_to_screen(screen_image_ptr, GBA_SCREEN_WIDTH, GBA_SCREEN_HEIGHT, SCREEN_IMAGE_POS_X, SCREEN_IMAGE_POS_Y);
+      print_string(game_title, 228, 28, TAB_COLOR_DIM, BG_NO_FILL);
+      blit_to_screen(screen_image_ptr, GBA_SCREEN_WIDTH, GBA_SCREEN_HEIGHT, SCREEN_IMAGE_POS_X, SCREEN_IMAGE_POS_Y);
 
-    //print_string(backup_id, 228, 208, COLOR_INACTIVE_ITEM, BG_NO_FILL);
-
-    if (current_menu && current_menu->init_function != NULL)
-    {
-      current_menu->init_function();
-    }
-
-    if (current_menu && current_menu->options)
-    {
-      display_option = current_menu->options;
-
-      for (i = 0; i < current_menu->num_options; i++, display_option++)
+      if (current_menu && current_menu->options)
       {
-      if (display_option->option_type & NUMBER_SELECTION_OPTION)
-      {
-        sprintf(line_buffer, display_option->display_string, *(display_option->current_option));
-      }
-      else
-      {
-        if (display_option->option_type & STRING_SELECTION_OPTION)
-          sprintf(line_buffer, display_option->display_string, ((u32 *)display_option->options)[*(display_option->current_option)]);
-        else
-          strcpy(line_buffer, display_option->display_string);
-      }
-/*file charset*/
-		print_string(line_buffer, MENU_LIST_POS_X, (display_option->line_number * FONTHEIGHT) + 28, (display_option == current_option) ? COLOR_ACTIVE_ITEM : COLOR_INACTIVE_ITEM, BG_NO_FILL);
-      }
-    }
+        display_option = current_menu->options;
 
-	print_string(MSG[current_option->help_string], 30, 258, COLOR_HELP_TEXT, BG_NO_FILL);
-    print_string("FrogGBA - TempGBA mod by Prosty", 270, 258, COLOR_HELP_TEXT, BG_NO_FILL);
+        for (i = 0; i < current_menu->num_options; i++, display_option++)
+        {
+          u32 row_y = (display_option->line_number * FONTHEIGHT) + 28;
+          u32 selected = (display_option == current_option);
+
+          if (display_option->option_type & NUMBER_SELECTION_OPTION)
+          {
+            sprintf(line_buffer, display_option->display_string, *(display_option->current_option));
+          }
+          else
+          {
+            if (display_option->option_type & STRING_SELECTION_OPTION)
+              sprintf(line_buffer, display_option->display_string, ((u32 *)display_option->options)[*(display_option->current_option)]);
+            else
+              strcpy(line_buffer, display_option->display_string);
+          }
+
+          if (selected)
+            draw_box_fill(6, row_y - 1, 222, row_y + 12, TAB_COLOR_HI_BG);
+
+          print_string(line_buffer, MENU_LIST_POS_X, row_y, selected ? TAB_COLOR_HI_FG : TAB_COLOR_TEXT, BG_NO_FILL);
+        }
+      }
+
+      // drawn after the rows so labels and titles stay on top
+      if (current_menu && current_menu->init_function != NULL)
+      {
+        current_menu->init_function();
+      }
+
+      print_string(MSG[current_option->help_string], 30, 256, TAB_COLOR_DIM, BG_NO_FILL);
+      print_string("FrogGBA - TempGBA mod by Prosty", 270, 256, TAB_COLOR_LINE, BG_NO_FILL);
     }
 
     // PSP controller - hold
     if (get_pad_input(PSP_CTRL_HOLD) != 0)
-      print_string(FONT_KEY_ICON, 6, 258, COLOR15_YELLOW, BG_NO_FILL);
+      print_string(FONT_KEY_ICON, 6, 256, COLOR15_YELLOW, BG_NO_FILL);
 
     __draw_volume_status(1);
     flip_screen(1);
@@ -3126,7 +3170,8 @@ s32 save_config_file(void)
     }
 
     file_options[CONFIG_EXTRA_INDEX] = (CONFIG_EXTRA_MAGIC << 8) | (option_font & 3) |
-      (option_quickplay ? 0 : CONFIG_BIT_NO_QUICKPLAY) | (option_recent_list ? CONFIG_BIT_RECENTS : 0);
+      (option_quickplay ? 0 : CONFIG_BIT_NO_QUICKPLAY) | (option_recent_list ? CONFIG_BIT_RECENTS : 0) |
+      ((option_lcd_grid & 3) << CONFIG_GRID_SHIFT);
 
     FILE_WRITE_ARRAY(config_file, file_options);
     FILE_CLOSE(config_file);
@@ -3261,11 +3306,13 @@ s32 load_config_file(void)
       option_font = 0;  // Fixed, also for config files written before this setting existed
       option_quickplay = 1;
       option_recent_list = 0;
+      option_lcd_grid = 0;
       if ((file_options[CONFIG_EXTRA_INDEX] >> 8) == CONFIG_EXTRA_MAGIC)
       {
         option_font = (file_options[CONFIG_EXTRA_INDEX] & 3) % 3;
         option_quickplay = (file_options[CONFIG_EXTRA_INDEX] & CONFIG_BIT_NO_QUICKPLAY) ? 0 : 1;
         option_recent_list = (file_options[CONFIG_EXTRA_INDEX] & CONFIG_BIT_RECENTS) ? 1 : 0;
+        option_lcd_grid = ((file_options[CONFIG_EXTRA_INDEX] >> CONFIG_GRID_SHIFT) & 3) % 3;
       }
 
       // Update memory timing when loading config
@@ -3306,6 +3353,7 @@ s32 load_config_file(void)
   option_auto_save_state = 0; // Default to Off
   option_quickplay = 1;
   option_recent_list = 0;
+  option_lcd_grid = 0;
 
   return -1;
 }
@@ -3548,14 +3596,6 @@ static void save_bmp(const char *path, u16 *screen_image)
 
 /* Start screen of the Quickplay feature: last played game, Continue / Browse / Options.
    game_path is the full path of the last game. */
-#define HOME_COLOR_BG     COLOR15( 7, 14, 11)
-#define HOME_COLOR_BAR    COLOR15( 5, 10,  8)
-#define HOME_COLOR_PANEL  COLOR15( 6, 11,  9)
-#define HOME_COLOR_LINE   COLOR15(11, 19, 15)
-#define HOME_COLOR_TEXT   COLOR15(26, 30, 28)
-#define HOME_COLOR_DIM    COLOR15(17, 24, 20)
-#define HOME_COLOR_HI_BG  COLOR15(31, 31, 28)
-#define HOME_COLOR_HI_FG  COLOR15( 4,  8,  7)
 
 u32 home_screen(const char *game_path)
 {
@@ -3586,17 +3626,17 @@ u32 home_screen(const char *game_path)
       update_status_string(time_str, batt_str, &color_batt_life);
     counter++;
 
-    clear_screen(COLOR15_TO_32(HOME_COLOR_BG));
+    clear_screen(COLOR15_TO_32(TAB_COLOR_BG));
 
-    draw_box_fill(0, 0, 479, 16, HOME_COLOR_BAR);
-    print_string("FrogGBA", 6, 2, HOME_COLOR_HI_BG, BG_NO_FILL);
-    print_string(time_str, TIME_STATUS_POS_X, 2, HOME_COLOR_DIM, BG_NO_FILL);
+    draw_box_fill(0, 0, 479, 16, TAB_COLOR_BAR);
+    print_string("FrogGBA", 6, 2, TAB_COLOR_HI_BG, BG_NO_FILL);
+    print_string(time_str, TIME_STATUS_POS_X, 2, TAB_COLOR_DIM, BG_NO_FILL);
     print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
 
     /* game card */
-    draw_box_fill(40, 44, 439, 150, HOME_COLOR_PANEL);
-    draw_hline(40, 439, 44, HOME_COLOR_LINE);
-    print_string(UI(UI_HOME_LAST), 56, 56, HOME_COLOR_DIM, BG_NO_FILL);
+    draw_box_fill(40, 44, 439, 150, TAB_COLOR_PANEL);
+    draw_hline(40, 439, 44, TAB_COLOR_LINE);
+    print_string(UI(UI_HOME_LAST), 56, 56, TAB_COLOR_DIM, BG_NO_FILL);
 
     /* title wrapped on two lines of 60 characters */
     len = strlen(name);
@@ -3615,14 +3655,14 @@ u32 home_screen(const char *game_path)
       }
       memcpy(line, name + pos, cut);
       line[cut] = 0;
-      print_string(line, 56, 78 + (k * 16), HOME_COLOR_TEXT, BG_NO_FILL);
+      print_string(line, 56, 78 + (k * 16), TAB_COLOR_TEXT, BG_NO_FILL);
       pos += cut;
       while (name[pos] == ' ')
         pos++;
     }
 
     print_string((option_auto_save_state != 0) ? UI(UI_HOME_RESUME) : UI(UI_HOME_RESTART),
-                 56, 124, HOME_COLOR_DIM, BG_NO_FILL);
+                 56, 124, TAB_COLOR_DIM, BG_NO_FILL);
 
     /* buttons */
     for (k = 0; k < 3; k++)
@@ -3632,23 +3672,23 @@ u32 home_screen(const char *game_path)
       y = 166 + (k * 24);
       if (k == 0)
       {
-        draw_box_fill(40, y, 439, y + 19, HOME_COLOR_HI_BG);
-        print_string(label, 56, y + 4, HOME_COLOR_HI_FG, BG_NO_FILL);
+        draw_box_fill(40, y, 439, y + 19, TAB_COLOR_HI_BG);
+        print_string(label, 56, y + 4, TAB_COLOR_HI_FG, BG_NO_FILL);
       }
       else
       {
-        draw_box_fill(40, y, 439, y + 19, HOME_COLOR_PANEL);
-        print_string(label, 56, y + 4, HOME_COLOR_TEXT, BG_NO_FILL);
+        draw_box_fill(40, y, 439, y + 19, TAB_COLOR_PANEL);
+        print_string(label, 56, y + 4, TAB_COLOR_TEXT, BG_NO_FILL);
       }
       {
         const char *key = (k == 0) ? ((option_button_mapping != 0) ? "O" : "X") : (k == 1) ? "[]" : "SELECT";
 
         print_string(key, 423 - (strlen(key) * FONTWIDTH), y + 4,
-                     (k == 0) ? HOME_COLOR_HI_FG : HOME_COLOR_DIM, BG_NO_FILL);
+                     (k == 0) ? TAB_COLOR_HI_FG : TAB_COLOR_DIM, BG_NO_FILL);
       }
     }
 
-    draw_box_fill(0, 250, 479, 271, HOME_COLOR_BAR);
+    draw_box_fill(0, 250, 479, 271, TAB_COLOR_BAR);
 
     __draw_volume_status(1);
     flip_screen(1);

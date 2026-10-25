@@ -3815,6 +3815,61 @@ static void draw_sprite_slices(u32 src_x, u32 src_y, u32 src_w, u32 src_h,
   sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_2D, slice_count * 2, 0, vertices);
 }
 
+// LCD grid: 0 = off, 1 = light, 2 = strong. Dark translucent lines are drawn
+// between GBA pixels on top of the scaled image.
+u32 option_lcd_grid = 0;
+
+static void draw_lcd_grid(void)
+{
+  static const u32 grid_color[3] = { 0, 0x38000000, 0x70000000 };
+  u32 count = GBA_SCREEN_WIDTH + GBA_SCREEN_HEIGHT - 2;
+  VertexLineCol32 *vertices;
+  VertexLineCol32 *v;
+  u32 k;
+
+  if (option_lcd_grid == 0 || option_lcd_grid > 2)
+    return;
+
+  sceGuStart(GU_DIRECT, display_list);
+  sceGuDisable(GU_TEXTURE_2D);
+  sceGuEnable(GU_BLEND);
+
+  vertices = (VertexLineCol32 *)sceGuGetMemory(count * 2 * sizeof(VertexLineCol32));
+
+  if (vertices != NULL)
+  {
+    u32 color = grid_color[option_lcd_grid];
+
+    memset(vertices, 0, count * 2 * sizeof(VertexLineCol32));
+    v = vertices;
+
+    // Vertical lines between columns
+    for (k = 1; k < GBA_SCREEN_WIDTH; k++, v += 2)
+    {
+      u32 x = sharp_dx + (k * sharp_dw) / GBA_SCREEN_WIDTH;
+
+      v[0].color = color; v[0].x = x;     v[0].y = sharp_dy;
+      v[1].color = color; v[1].x = x + 1; v[1].y = sharp_dy + sharp_dh;
+    }
+
+    // Horizontal lines between rows
+    for (k = 1; k < GBA_SCREEN_HEIGHT; k++, v += 2)
+    {
+      u32 y = sharp_dy + (k * sharp_dh) / GBA_SCREEN_HEIGHT;
+
+      v[0].color = color; v[0].x = sharp_dx;                v[0].y = y;
+      v[1].color = color; v[1].x = sharp_dx + sharp_dw;     v[1].y = y + 1;
+    }
+
+    sceGuDrawArray(GU_SPRITES, GU_COLOR_8888 | GU_VERTEX_16BIT | GU_TRANSFORM_2D, count * 2, NULL, vertices);
+  }
+
+  sceGuDisable(GU_BLEND);
+  sceGuEnable(GU_TEXTURE_2D);
+  sceGuFinish();
+  sceGuSync(0, GU_SYNC_FINISH);
+}
+
 static void bitbilt_gu_sharp(void)
 {
   sceGuStart(GU_DIRECT, display_list);
@@ -3860,6 +3915,7 @@ static void bitbilt_gu(void)
   if (sharp_active != 0)
   {
     bitbilt_gu_sharp();
+    draw_lcd_grid();
 
     // Apply overlay AFTER GPU finishes to avoid conflicts
     render_overlay();
@@ -3872,6 +3928,7 @@ static void bitbilt_gu(void)
 
   sceGuFinish();
   sceGuSync(0, GU_SYNC_FINISH);
+  draw_lcd_grid();
   
   // Apply overlay AFTER GPU finishes to avoid conflicts
   render_overlay();
@@ -3886,6 +3943,10 @@ static void generate_display_list_stretch(void)
   // Sharp bilinear does not apply to the non-uniform stretch mode
   sharp_active = 0;
   sharp_fallback_linear = 1;
+  sharp_dx = 0;
+  sharp_dy = 0;
+  sharp_dw = PSP_SCREEN_WIDTH;
+  sharp_dh = PSP_SCREEN_HEIGHT;
 
   // Stretch to fill entire PSP screen
   dw = PSP_SCREEN_WIDTH;  // 480 (instead of 240*mag)

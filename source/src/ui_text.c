@@ -29,6 +29,7 @@ const char *ui_text_table[LANG_COUNT][UI_END] =
     [UI_SCR_FILTER]  = "Filter : %s",
     [UI_SCR_COLOR]   = "Color correction : %s",
     [UI_SCR_FPS]     = "Show FPS : %s",
+    [UI_SCR_GRID]    = "LCD grid : %s",
     [UI_SCR_OVERLAY] = "Overlay (border)",
 
     [UI_PERF_CPU]    = "CPU clock : %s",
@@ -64,6 +65,7 @@ const char *ui_text_table[LANG_COUNT][UI_END] =
     [UI_D_FILTER]   = "OFF: raw pixels. ON: smoothed. SHARP: crisp pixels at non-integer zooms like 150%.",
     [UI_D_COLOR]    = "Adjust the colors toward the original GBA screen.",
     [UI_D_FPS]      = "Show frames per second and performance counters. Shortcut: SELECT + Square.",
+    [UI_D_GRID]     = "Dark lines between GBA pixels, like the original LCD. Works best at 200% zoom.",
     [UI_D_OVERLAY]  = "Border drawn around the image, with horizontal and vertical offset.",
     [UI_D_CPU]      = "Higher is smoother but heats the console and drains the battery. 333 is the official value.",
     [UI_D_FSKIP]    = "Skip frames when the console cannot keep up.",
@@ -124,6 +126,7 @@ const char *ui_text_table[LANG_COUNT][UI_END] =
     [UI_SCR_FILTER]  = "Filtre : %s",
     [UI_SCR_COLOR]   = "Correction couleurs : %s",
     [UI_SCR_FPS]     = "Afficher les FPS : %s",
+    [UI_SCR_GRID]    = "Grille LCD : %s",
     [UI_SCR_OVERLAY] = "Bordure (overlay)",
 
     [UI_PERF_CPU]    = "Fr" A_EACUTE "quence CPU : %s",
@@ -159,6 +162,7 @@ const char *ui_text_table[LANG_COUNT][UI_END] =
     [UI_D_FILTER]   = "OFF : pixels bruts. ON : liss" A_EACUTE ". SHARP : pixels nets avec un zoom non entier comme 150%.",
     [UI_D_COLOR]    = "Rapproche les couleurs de celles de l'" A_EACUTE "cran GBA d'origine.",
     [UI_D_FPS]      = "Affiche les images par seconde et les compteurs. Raccourci : SELECT + Carr" A_EACUTE ".",
+    [UI_D_GRID]     = "Lignes sombres entre les pixels GBA, comme sur l'"A_EACUTE"cran d'origine. Rendu optimal en zoom 200%.",
     [UI_D_OVERLAY]  = "Cadre autour de l'image, avec d" A_EACUTE "calage horizontal et vertical.",
     [UI_D_CPU]      = "Plus haut = plus fluide, mais la console chauffe et la batterie baisse. 333 est la valeur officielle.",
     [UI_D_FSKIP]    = "Saute des images quand la console ne suit pas.",

@@ -27,6 +27,19 @@ This mod is based on:
 - [TempGBA](https://github.com/Nebuleon/TempGBA) by Nebuleon, Normmatt, and BassAceGold
 - TempGBA4PSP-mod (TempGBA4PSP-26731020), http://www1.axfc.net/uploader/so/3063963
 
+## PSP-1000 Edition (this branch)
+
+Changes aimed at the original PSP-1000 (480x272 screen):
+
+- **Tabbed menu**: Game / Screen / Performance / Controls / System tabs, switched with L and R. The file browser, sub-menus and start screen share the same look.
+- **Quickplay start screen**: shows the last played game with a *Continue* button that resumes the auto save. Can be disabled in System. An optional *recent games* list (last 4, off by default) sits at the top of the game list.
+- **Full French translation** of the interface (System > Language), with accented 6x12 bitmap fonts to choose from: Fixed, Terminus, Spleen.
+- **Sharp bilinear filter** (Screen > Filter > SHARP): renders at 2x nearest-neighbour, then scales down bilinearly. Pixels stay crisp at non-integer zooms such as 150%.
+- **LCD grid** (Screen > LCD grid): optional dark lines between GBA pixels (light / strong). Best at 200% zoom; not applied in the software 1.5x mode.
+- **Performance**: larger dynamic recompiler cache for RAM code (768 KB), extra clock steps (383 / 403 / 423 MHz), sound calculation skipped when the volume is 0%, and profiling counters in the FPS overlay (SELECT + Square).
+
+Settings are stored in the existing config file; configs from older versions keep working with default values for the new options.
+
 ## What's New in FrogGBA (Since v1.0)
 
 ### 🖼️ Overlay System (Enhanced in v0.2.2)
