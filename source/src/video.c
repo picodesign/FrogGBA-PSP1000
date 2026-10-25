@@ -3822,8 +3822,10 @@ u32 option_lcd_grid = 0;
 static void draw_lcd_grid(void)
 {
   static const u32 grid_color[3] = { 0, 0x38000000, 0x70000000 };
+  // The display list is only 2 KB, too small for sceGuGetMemory(): keep the
+  // vertices in their own buffer and flush it for the GE.
+  static VertexLineCol32 ALIGN_PSPDATA vertices[(GBA_SCREEN_WIDTH + GBA_SCREEN_HEIGHT - 2) * 2];
   u32 count = GBA_SCREEN_WIDTH + GBA_SCREEN_HEIGHT - 2;
-  VertexLineCol32 *vertices;
   VertexLineCol32 *v;
   u32 k;
 
@@ -3834,13 +3836,10 @@ static void draw_lcd_grid(void)
   sceGuDisable(GU_TEXTURE_2D);
   sceGuEnable(GU_BLEND);
 
-  vertices = (VertexLineCol32 *)sceGuGetMemory(count * 2 * sizeof(VertexLineCol32));
-
-  if (vertices != NULL)
   {
     u32 color = grid_color[option_lcd_grid];
 
-    memset(vertices, 0, count * 2 * sizeof(VertexLineCol32));
+    memset(vertices, 0, sizeof(vertices));
     v = vertices;
 
     // Vertical lines between columns
@@ -3861,6 +3860,7 @@ static void draw_lcd_grid(void)
       v[1].color = color; v[1].x = sharp_dx + sharp_dw;     v[1].y = y + 1;
     }
 
+    sceKernelDcacheWritebackRange(vertices, sizeof(vertices));
     sceGuDrawArray(GU_SPRITES, GU_COLOR_8888 | GU_VERTEX_16BIT | GU_TRANSFORM_2D, count * 2, NULL, vertices);
   }
 
