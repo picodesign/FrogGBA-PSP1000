@@ -21,7 +21,8 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
-#define MSG  message[option_language]
+// Index 2 (French) has no table of its own: legacy strings stay English, new UI uses ui_text.h
+#define MSG  message[(option_language == 0) ? 0 : 1]
 
 enum MESSAGE_ITEM
 {

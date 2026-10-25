@@ -3616,7 +3616,7 @@ s32 load_gamepak(char *name)
   print_string("    (   )", X_POS_CENTER, 85, COLOR15_GREEN, BG_NO_FILL);
   print_string("   _) (_", X_POS_CENTER, 95, COLOR15_GREEN, BG_NO_FILL);
   
-  if (option_language == 0 || option_language == 1)
+  if (option_language <= 2)
 	print_string(MSG[MSG_LOADING_ROM], X_POS_CENTER, 115, COLOR15_WHITE, BG_NO_FILL);
   else
 	print_string_gbk(MSG[MSG_LOADING_ROM], X_POS_CENTER, 115, COLOR15_WHITE, BG_NO_FILL);
@@ -3629,7 +3629,7 @@ s32 load_gamepak(char *name)
   print_string("    (   )", X_POS_CENTER, 85, COLOR15_GREEN, BG_NO_FILL);
   print_string("   _) (_", X_POS_CENTER, 95, COLOR15_GREEN, BG_NO_FILL);
   
-  if (option_language == 0 || option_language == 1)
+  if (option_language <= 2)
 	print_string(MSG[MSG_LOADING_ROM], X_POS_CENTER, 115, COLOR15_WHITE, BG_NO_FILL);
   else
 	print_string_gbk(MSG[MSG_LOADING_ROM], X_POS_CENTER, 115, COLOR15_WHITE, BG_NO_FILL);
@@ -3646,7 +3646,7 @@ s32 load_gamepak(char *name)
   if (!strcasecmp(dot_position, ".gba") || !strcasecmp(dot_position, ".agb") || !strcasecmp(dot_position, ".bin"))
   {
     file_size = load_gamepak_raw(name);
-	if (option_language == 0 || option_language == 1)
+	if (option_language <= 2)
 		print_string(MSG[MSG_SEARCHING_BACKUP_ID], X_POS_CENTER, 148, COLOR15_WHITE, BG_NO_FILL);
     else
 		print_string_gbk(MSG[MSG_SEARCHING_BACKUP_ID], X_POS_CENTER, 148, COLOR15_WHITE, BG_NO_FILL);

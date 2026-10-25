@@ -19,6 +19,7 @@
  */
 
 #include "common.h"
+#include "ui_text.h"
 #include <pspiofilemgr.h>
 
 #define GPSP_CONFIG_FILENAME  "froggba.cfg"
@@ -96,6 +97,8 @@ struct _MenuOptionType
   u32 help_string;
   u32 line_number;
   MENU_OPTION_TYPE_ENUM option_type;
+  u32 action_id;            // nonzero: handled by the tabbed menu's action switch
+  const char *description;  // shown in the side panel of the tabbed menu
 };
 
 typedef struct _MenuOptionType MenuOptionType;
@@ -1460,7 +1463,7 @@ u32 menu(void)
 
   const char *language_options[] =
   {
-    MSG[MSG_LANG_JAPANESE], MSG[MSG_LANG_ENGLISH]
+    MSG[MSG_LANG_JAPANESE], MSG[MSG_LANG_ENGLISH], UI(UI_LANG_FRENCH)
   };
 
   const char *aspect_ratio_options[] =
@@ -1772,6 +1775,8 @@ u32 menu(void)
 	// 0 = Japanese, 1 = English, others default to English
 	if (id_language == 0)
 		option_language = 0;  // Japanese
+	else if (id_language == PSP_SYSTEMPARAM_LANGUAGE_FRENCH)
+		option_language = 2;  // French
 	else
 		option_language = 1;  // English (default for all other languages)
 
@@ -2043,7 +2048,7 @@ u32 menu(void)
 
     STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_9], update_backup_options, &option_update_backup, 2, MSG_OPTION_MENU_HELP_9, 15), 
 
-    STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_10], language_options, &option_language, 2, MSG_OPTION_MENU_HELP_10, 16),
+    STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_10], language_options, &option_language, 3, MSG_OPTION_MENU_HELP_10, 16),
 
     ACTION_OPTION(NULL, NULL, MSG[MSG_OPTION_MENU_DEFAULT], MSG_OPTION_MENU_HELP_DEFAULT, 17),
 
@@ -2165,6 +2170,345 @@ u32 menu(void)
 
   MAKE_MENU(main, NULL, NULL);
 
+  /* ---- Tabbed menu: Game / Screen / Performance / Controls / System ---- */
+
+  #define TAB_COUNT 5
+
+  #define TAB_COLOR_BG     COLOR15( 7, 14, 11)
+  #define TAB_COLOR_BAR    COLOR15( 5, 10,  8)
+  #define TAB_COLOR_PANEL  COLOR15( 6, 11,  9)
+  #define TAB_COLOR_LINE   COLOR15(11, 19, 15)
+  #define TAB_COLOR_TEXT   COLOR15(26, 30, 28)
+  #define TAB_COLOR_DIM    COLOR15(17, 24, 20)
+  #define TAB_COLOR_HI_BG  COLOR15(31, 31, 28)
+  #define TAB_COLOR_HI_FG  COLOR15( 4,  8,  7)
+
+  #define TAB_LIST_Y       (48)
+  #define TAB_ROW_HEIGHT   (20)
+  #define TAB_PANEL_X      (232)
+
+  enum
+  {
+    ACT_RETURN = 1,
+    ACT_SAVESTATE,
+    ACT_LOADSTATE,
+    ACT_DETAILS,
+    ACT_CAPTURE,
+    ACT_RESET,
+    ACT_LOADGAME,
+    ACT_DEFAULTS,
+    ACT_QUIT
+  };
+
+  #define TAB_ACTION(label, desc, action, row) \
+    { NULL, NULL, NULL, label, NULL, NULL, 0, 0, row, ACTION_OPTION, action, desc }
+  #define TAB_SUBMENU(menu, label, desc, row) \
+    { NULL, NULL, menu, label, NULL, NULL, 0, 0, row, SUBMENU_OPTION, 0, desc }
+  #define TAB_ACTION_SUBMENU(menu, label, desc, action, row) \
+    { NULL, NULL, menu, label, NULL, NULL, 0, 0, row, SUBMENU_OPTION | ACTION_OPTION, action, desc }
+  #define TAB_STRING(label, desc, opts, ptr, count, row) \
+    { NULL, NULL, NULL, label, opts, ptr, count, 0, row, STRING_SELECTION_OPTION, 0, desc }
+  #define TAB_NUMBER(label, desc, ptr, count, row) \
+    { NULL, NULL, NULL, label, NULL, ptr, count, 0, row, NUMBER_SELECTION_OPTION, 0, desc }
+  #define TAB_NUMBER_ACTION(label, desc, ptr, count, action, row) \
+    { NULL, NULL, NULL, label, NULL, ptr, count, 0, row, NUMBER_SELECTION_OPTION | ACTION_OPTION, action, desc }
+  #define TAB_STRING_ACTION(label, desc, opts, ptr, count, action, row) \
+    { NULL, NULL, NULL, label, opts, ptr, count, 0, row, STRING_SELECTION_OPTION | ACTION_OPTION, action, desc }
+
+  MenuOptionType tab_game_options[] =
+  {
+    TAB_ACTION(UI(UI_GAME_RETURN), UI(UI_D_RETURN), ACT_RETURN, 0),
+    TAB_NUMBER_ACTION(UI(UI_GAME_SAVE), UI(UI_D_SAVE), &savestate_slot, 10, ACT_SAVESTATE, 2),
+    TAB_NUMBER_ACTION(UI(UI_GAME_LOAD), UI(UI_D_LOAD), &savestate_slot, 10, ACT_LOADSTATE, 3),
+    TAB_ACTION_SUBMENU(&savestate_menu, UI(UI_GAME_DETAILS), UI(UI_D_DETAILS), ACT_DETAILS, 4),
+    TAB_STRING_ACTION(UI(UI_GAME_CAPTURE), UI(UI_D_CAPTURE), image_format_options, &option_screen_capture_format, 2, ACT_CAPTURE, 5),
+    TAB_SUBMENU(&cheats_misc_menu, UI(UI_GAME_CHEATS), UI(UI_D_CHEATS), 6),
+    TAB_ACTION(UI(UI_GAME_RESET), UI(UI_D_RESET), ACT_RESET, 8),
+    TAB_ACTION(UI(UI_GAME_LOADGAME), UI(UI_D_LOADGAME), ACT_LOADGAME, 9)
+  };
+  MAKE_MENU(tab_game, NULL, NULL);
+
+  MenuOptionType tab_screen_options[] =
+  {
+    TAB_STRING(UI(UI_SCR_SCALE), UI(UI_D_SCALE), scale_options, &option_screen_scale, 4, 0),
+    TAB_NUMBER(UI(UI_SCR_ZOOM), UI(UI_D_ZOOM), &option_screen_mag, 201, 1),
+    TAB_STRING(UI(UI_SCR_ASPECT), UI(UI_D_ASPECT), aspect_ratio_options, &option_aspect_ratio, 3, 2),
+    TAB_STRING(UI(UI_SCR_FILTER), UI(UI_D_FILTER), screen_filter_options, &option_screen_filter, 3, 3),
+    TAB_STRING(UI(UI_SCR_COLOR), UI(UI_D_COLOR), color_correction_options, &option_color_correction, 3, 4),
+    TAB_STRING(UI(UI_SCR_FPS), UI(UI_D_FPS), on_off_options, &psp_fps_debug, 2, 5),
+    TAB_SUBMENU(&overlay_menu_global, UI(UI_SCR_OVERLAY), UI(UI_D_OVERLAY), 6)
+  };
+  MAKE_MENU(tab_screen, NULL, NULL);
+
+  MenuOptionType tab_perf_options[] =
+  {
+    TAB_STRING(UI(UI_PERF_CPU), UI(UI_D_CPU), clock_speed_options, &option_clock_speed, PSP_CLOCK_OPTION_COUNT, 0),
+    TAB_STRING(UI(UI_PERF_FSKIP), UI(UI_D_FSKIP), frameskip_options, &option_frameskip_type, 3, 1),
+    TAB_NUMBER(UI(UI_PERF_FSKIPN), UI(UI_D_FSKIPN), &option_frameskip_value, 10, 2),
+    TAB_STRING(UI(UI_PERF_VOL), UI(UI_D_VOL), sound_volume_options, &option_sound_volume, 11, 3),
+    TAB_STRING(UI(UI_PERF_COMPAT), UI(UI_D_COMPAT), on_off_options, &option_compatibility_mode, 2, 4),
+    TAB_STRING(UI(UI_PERF_STACK), UI(UI_D_STACK), stack_optimize_options, &option_stack_optimize, 2, 5)
+  };
+  MAKE_MENU(tab_perf, NULL, NULL);
+
+  MenuOptionType tab_pad_options[] =
+  {
+    TAB_SUBMENU(&gamepad_config_menu, UI(UI_PAD_BUTTONS), UI(UI_D_BUTTONS), 0),
+    TAB_SUBMENU(&analog_config_menu, UI(UI_PAD_ANALOG), UI(UI_D_ANALOG), 1),
+    TAB_STRING(UI(UI_PAD_MAPPING), UI(UI_D_MAPPING), button_mapping_options, &option_button_mapping, 2, 2)
+  };
+  MAKE_MENU(tab_pad, NULL, NULL);
+
+  MenuOptionType tab_system_options[] =
+  {
+    TAB_STRING(UI(UI_SYS_LANG), UI(UI_D_LANG), language_options, &option_language, 3, 0),
+    TAB_STRING(UI(UI_SYS_BIOS), UI(UI_D_BIOS), yes_no_options, &option_boot_mode, 2, 1),
+    TAB_STRING(UI(UI_SYS_BACKUP), UI(UI_D_BACKUP), update_backup_options, &option_update_backup, 2, 2),
+    TAB_SUBMENU(&saving_menu_global, UI(UI_SYS_SAVING), UI(UI_D_SAVING), 3),
+    TAB_ACTION(UI(UI_SYS_DEFAULTS), UI(UI_D_DEFAULTS), ACT_DEFAULTS, 5),
+    TAB_ACTION(UI(UI_SYS_QUIT), UI(UI_D_QUIT), ACT_QUIT, 6)
+  };
+  MAKE_MENU(tab_system, NULL, NULL);
+
+  MenuType *tab_menus[TAB_COUNT] =
+  {
+    &tab_game_menu, &tab_screen_menu, &tab_perf_menu, &tab_pad_menu, &tab_system_menu
+  };
+
+  static u32 remembered_tab = 0;
+  u32 current_tab = remembered_tab;
+
+  u32 is_tab_menu(MenuType *menu)
+  {
+    u32 t;
+
+    for (t = 0; t < TAB_COUNT; t++)
+      if (menu == tab_menus[t])
+        return 1;
+
+    return 0;
+  }
+
+  /* Print text wrapped on spaces, at most max_chars per line and max_lines lines. */
+  void print_wrapped(const char *text, u32 x, u32 y, u32 max_chars, u32 max_lines, u16 color)
+  {
+    char buf[64];
+    u32 lines = 0;
+
+    while ((*text != 0) && (lines < max_lines))
+    {
+      u32 len = strlen(text);
+      u32 cut = len;
+
+      if (len > max_chars)
+      {
+        cut = max_chars;
+        while ((cut > 0) && (text[cut] != ' '))
+          cut--;
+        if (cut == 0)
+          cut = max_chars;
+      }
+
+      memcpy(buf, text, cut);
+      buf[cut] = 0;
+      print_string(buf, x, y + (lines * (FONTHEIGHT + 2)), color, BG_NO_FILL);
+
+      text += cut;
+      while (*text == ' ')
+        text++;
+      lines++;
+    }
+  }
+
+  void draw_tab_ui(void)
+  {
+    const char *tab_names[TAB_COUNT] =
+    {
+      UI(UI_TAB_GAME), UI(UI_TAB_SCREEN), UI(UI_TAB_PERF), UI(UI_TAB_PAD), UI(UI_TAB_SYSTEM)
+    };
+    char label[56];
+    char value[48];
+    char title[40];
+    char hint[80];
+    MenuOptionType *opt;
+    u32 t, x, k;
+
+    /* top bar */
+    draw_box_fill(0, 0, 479, 16, TAB_COLOR_BAR);
+    print_string("FrogGBA", 6, 2, TAB_COLOR_HI_BG, BG_NO_FILL);
+    strncpy(title, game_title, 33);
+    title[33] = 0;
+    print_string(title, 66, 2, TAB_COLOR_DIM, BG_NO_FILL);
+    print_string(time_str, TIME_STATUS_POS_X, 2, TAB_COLOR_DIM, BG_NO_FILL);
+    print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
+
+    /* tab strip */
+    draw_box_fill(0, 17, 479, 40, TAB_COLOR_PANEL);
+    draw_hline(0, 479, 41, TAB_COLOR_LINE);
+    print_string("L", 6, 25, TAB_COLOR_DIM, BG_NO_FILL);
+    print_string("R", 468, 25, TAB_COLOR_DIM, BG_NO_FILL);
+
+    x = 22;
+    for (t = 0; t < TAB_COUNT; t++)
+    {
+      u32 w = (strlen(tab_names[t]) * FONTWIDTH) + 16;
+
+      if (t == current_tab)
+      {
+        draw_box_fill(x, 22, x + w - 1, 41, TAB_COLOR_HI_BG);
+        print_string(tab_names[t], x + 8, 26, TAB_COLOR_HI_FG, BG_NO_FILL);
+      }
+      else
+      {
+        print_string(tab_names[t], x + 8, 26, TAB_COLOR_DIM, BG_NO_FILL);
+      }
+
+      x += w + 2;
+    }
+
+    /* option list */
+    opt = current_menu->options;
+    for (k = 0; k < current_menu->num_options; k++, opt++)
+    {
+      u32 y = TAB_LIST_Y + (opt->line_number * TAB_ROW_HEIGHT);
+      u32 selected = (opt == current_option);
+      u32 selectable = (opt->option_type & (NUMBER_SELECTION_OPTION | STRING_SELECTION_OPTION)) != 0;
+      u16 fg = selected ? TAB_COLOR_HI_FG : TAB_COLOR_TEXT;
+      char *colon;
+
+      if (opt->option_type & NUMBER_SELECTION_OPTION)
+        sprintf(line_buffer, opt->display_string, *(opt->current_option));
+      else if (opt->option_type & STRING_SELECTION_OPTION)
+        sprintf(line_buffer, opt->display_string, ((u32 *)opt->options)[*(opt->current_option)]);
+      else
+        strcpy(line_buffer, opt->display_string);
+
+      label[0] = 0;
+      value[0] = 0;
+      colon = strchr(line_buffer, ':');
+      if (colon != NULL)
+      {
+        u32 n = colon - line_buffer;
+        char *v = colon + 1;
+
+        while ((n > 0) && (line_buffer[n - 1] == ' '))
+          n--;
+        memcpy(label, line_buffer, n);
+        label[n] = 0;
+
+        while (*v == ' ')
+          v++;
+        if (selectable && selected)
+          sprintf(value, "< %s >", v);
+        else
+          strcpy(value, v);
+      }
+      else
+      {
+        strcpy(label, line_buffer);
+        if (opt->option_type & SUBMENU_OPTION)
+          strcpy(value, ">");
+      }
+
+      if (selected)
+        draw_box_fill(6, y, 224, y + 17, TAB_COLOR_HI_BG);
+      else if (opt->action_id == ACT_RETURN)
+        fg = TAB_COLOR_HI_BG;
+
+      print_string(label, 12, y + 3, fg, BG_NO_FILL);
+      if (value[0] != 0)
+        print_string(value, 218 - (strlen(value) * FONTWIDTH), y + 3, selected ? TAB_COLOR_HI_FG : TAB_COLOR_DIM, BG_NO_FILL);
+    }
+
+    /* side panel: game preview on the Game tab, description everywhere */
+    draw_box_fill(TAB_PANEL_X, 44, 471, 247, TAB_COLOR_PANEL);
+
+    if (current_tab == 0)
+    {
+      blit_to_screen(screen_image_ptr, GBA_SCREEN_WIDTH, GBA_SCREEN_HEIGHT, TAB_PANEL_X, 46);
+      if (current_option->description != NULL)
+        print_wrapped(current_option->description, TAB_PANEL_X + 4, 210, 38, 3, TAB_COLOR_TEXT);
+    }
+    else
+    {
+      const char *name = current_option->display_string;
+      char *colon;
+
+      strncpy(title, name, 38);
+      title[38] = 0;
+      colon = strchr(title, ':');
+      if (colon != NULL)
+      {
+        while ((colon > title) && (*(colon - 1) == ' '))
+          colon--;
+        *colon = 0;
+      }
+      print_string(title, TAB_PANEL_X + 8, 54, TAB_COLOR_HI_BG, BG_NO_FILL);
+      if (current_option->description != NULL)
+        print_wrapped(current_option->description, TAB_PANEL_X + 8, 76, 37, 10, TAB_COLOR_TEXT);
+    }
+
+    /* hint bar */
+    draw_box_fill(0, 250, 479, 271, TAB_COLOR_BAR);
+    sprintf(hint, "%c %s   %c %s   </> %s   L/R %s",
+            option_button_mapping ? 'O' : 'X', UI(UI_HINT_SELECT),
+            option_button_mapping ? 'X' : 'O', UI(UI_HINT_BACK),
+            UI(UI_HINT_CHANGE), UI(UI_HINT_TABS));
+    print_string(hint, 10, 256, TAB_COLOR_DIM, BG_NO_FILL);
+  }
+
+  void choose_tab(u32 tab)
+  {
+    current_tab = tab % TAB_COUNT;
+    remembered_tab = current_tab;
+    choose_menu(tab_menus[current_tab]);
+  }
+
+  void handle_tab_action(u32 action)
+  {
+    switch (action)
+    {
+      case ACT_RETURN:
+        menu_exit();
+        break;
+
+      case ACT_SAVESTATE:
+        action_savestate();
+        repeat = 0;
+        break;
+
+      case ACT_LOADSTATE:
+        action_loadstate();
+        repeat = 0;
+        break;
+
+      case ACT_DETAILS:
+        menu_init();
+        choose_menu(&savestate_menu);
+        break;
+
+      case ACT_CAPTURE:
+        menu_screen_capture();
+        break;
+
+      case ACT_RESET:
+        menu_reset();
+        break;
+
+      case ACT_LOADGAME:
+        menu_load_file();
+        break;
+
+      case ACT_DEFAULTS:
+        menu_default();
+        break;
+
+      case ACT_QUIT:
+        menu_quit();
+        break;
+    }
+  }
+
 
   void choose_menu(MenuType *new_menu)
   {
@@ -2172,7 +2516,7 @@ u32 menu(void)
     
     if (new_menu == NULL) {
       printf("DEBUG: new_menu was NULL, using main_menu\n");
-      new_menu = &main_menu;
+      new_menu = tab_menus[current_tab];
     }
 
     printf("DEBUG: Setting current_menu to %p\n", new_menu);
@@ -2236,18 +2580,25 @@ u32 menu(void)
   video_resolution_large();
   set_cpu_clock(PSP_CLOCK_222);
   
-  choose_menu(&main_menu);
+  choose_tab(current_tab);
   
 
   while (repeat)
   {
-    clear_screen(COLOR15_TO_32(COLOR_BG));
+    clear_screen(COLOR15_TO_32(is_tab_menu(current_menu) ? TAB_COLOR_BG : COLOR_BG));
 
     if ((counter % 30) == 0)
 	{
 	  update_status_string(time_str, batt_str, &color_batt_life);
 	}
     counter++;
+
+    if (is_tab_menu(current_menu))
+    {
+      draw_tab_ui();
+    }
+    else
+    {
 	print_string(time_str, TIME_STATUS_POS_X, 2, COLOR_HELP_TEXT, BG_NO_FILL);
 
 	print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
@@ -2286,6 +2637,7 @@ u32 menu(void)
 
 	print_string(MSG[current_option->help_string], 30, 258, COLOR_HELP_TEXT, BG_NO_FILL);
     print_string("FrogGBA - TempGBA mod by Prosty", 270, 258, COLOR_HELP_TEXT, BG_NO_FILL);
+    }
 
     // PSP controller - hold
     if (get_pad_input(PSP_CTRL_HOLD) != 0)
@@ -2342,7 +2694,11 @@ u32 menu(void)
         break;
 
       case CURSOR_RTRIGGER:
-        if (current_menu == &main_menu)
+        if (is_tab_menu(current_menu))
+        {
+          choose_tab(current_tab + 1);
+        }
+        else if (current_menu == &main_menu)
         {
           menu_init();
           choose_menu(&savestate_menu);
@@ -2350,7 +2706,9 @@ u32 menu(void)
         break;
 
       case CURSOR_LTRIGGER:
-        if (current_menu == &main_menu)
+        if (is_tab_menu(current_menu))
+          choose_tab(current_tab + TAB_COUNT - 1);
+        else if (current_menu == &main_menu)
           menu_load_file();
         if (current_menu == &cheats_misc_menu)
           menu_load_cheat_file();
@@ -2379,18 +2737,24 @@ u32 menu(void)
         break;
 
       case CURSOR_EXIT:
-        if (current_menu == &main_menu)
+        if ((current_menu == &main_menu) || is_tab_menu(current_menu))
         {
           menu_exit();
         }
         else
         {
           menu_init();
-          choose_menu(&main_menu);
+          choose_menu(tab_menus[current_tab]);
         }
         break;
 
       case CURSOR_SELECT:
+        if (current_option->action_id != 0)
+        {
+          handle_tab_action(current_option->action_id);
+          break;
+        }
+
         switch (current_option->option_type & (ACTION_OPTION | SUBMENU_OPTION))
         {
           case (ACTION_OPTION | SUBMENU_OPTION):
@@ -2852,7 +3216,7 @@ s32 load_config_file(void)
       option_screen_capture_format = file_options[11] % 2;
       option_enable_analog  = file_options[12] % 2;
       option_analog_sensitivity = file_options[13] % 10;
-      option_language = file_options[14] % 2;  // Only Japanese (0) and English (1)
+      option_language = file_options[14] % 3;  // Japanese (0), English (1), French (2)
       option_color_correction = file_options[15] % 3;  // 0 = Off, 1 = GPSP, 2 = Retro
       option_overlay_enabled = file_options[16] % 2;  // 0 = Off, 1 = On
       option_overlay_selected = file_options[17] % 10;  // 0-9 overlay selection
