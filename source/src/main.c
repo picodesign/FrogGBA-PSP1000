@@ -913,6 +913,54 @@ static void setup_main(void)
   scePowerUnlock(0);
 }
 
+/* Full path of the last played game, or -1 if there is none. */
+static int get_last_game_path(char *last_game_path)
+{
+  if (load_last_played_game(last_game_path, MAX_PATH) != 0)
+    return -1;
+
+  // Check if it's already a full path (starts with "ms0:") or just a filename
+  if (strncmp(last_game_path, "ms0:", 4) != 0) {
+    char temp_filename[MAX_PATH];
+    strcpy(temp_filename, last_game_path);
+    sprintf(last_game_path, "%s%s", dir_roms, temp_filename);
+  }
+
+  return 0;
+}
+
+/* Load the last played game and resume it (auto save state if enabled).
+   Returns 1 once the game has run, 0 if it could not be loaded. */
+static int boot_last_game(char *last_game_path)
+{
+  if (load_gamepak(last_game_path) < 0)
+    return 0;
+
+  // Check if we should load auto-save state
+  int will_load_auto_save = (option_auto_save_state != 0);
+
+  if (!will_load_auto_save) {
+    // Only reset GBA if we're NOT going to load a save state
+    reset_gba();
+  }
+
+  set_cpu_clock(option_clock_speed);
+  sceDisplayWaitVblankStart();
+  video_resolution_small();
+  sound_pause = 0;
+
+  // Try to load the auto-save state AFTER all initialization (only if enabled)
+  if (will_load_auto_save) {
+    // Do basic reset first, then load save state over it
+    reset_gba();
+    load_auto_resume_state();
+  }
+
+  // Continue with execution
+  execute_arm_translate(reg[EXECUTE_CYCLES]);
+  return 1;
+}
+
 int user_main(int argc, char *argv[])
 {
   char load_filename[MAX_FILE];
@@ -941,53 +989,55 @@ int user_main(int argc, char *argv[])
 
   gamepak_filename[0] = 0;
 
+  int game_ready = 0;
+
   // NOW check for resume on boot functionality AFTER config is loaded
   if (argc <= 1 && option_resume_on_boot != 0) {
     char last_game_path[MAX_PATH];
-    if (load_last_played_game(last_game_path, MAX_PATH) == 0) {
-      
-      // Check if it's already a full path (starts with "ms0:") or just a filename
-      if (strncmp(last_game_path, "ms0:", 4) != 0) {
-        // It's just a filename, construct full path
-        char temp_filename[MAX_PATH];
-        strcpy(temp_filename, last_game_path);
-        sprintf(last_game_path, "%s%s", dir_roms, temp_filename);
-        
-      }
-      
-      // We have a last played game, try to load it
-      if (load_gamepak(last_game_path) >= 0) {
-        // Successfully loaded last played game
-        
-        // Check if we should load auto-save state
-        int will_load_auto_save = (option_auto_save_state != 0);
-        
-        if (!will_load_auto_save) {
-          // Only reset GBA if we're NOT going to load a save state
-          reset_gba();
-        }
-        
-        set_cpu_clock(option_clock_speed);
-        sceDisplayWaitVblankStart();
-        video_resolution_small();
-        sound_pause = 0;
-        
-        // Try to load the auto-save state AFTER all initialization (only if enabled)
-        if (will_load_auto_save) {
-          // Do basic reset first, then load save state over it
-          reset_gba();
-          load_auto_resume_state();
-        }
-        
-        // Continue with execution
-        execute_arm_translate(reg[EXECUTE_CYCLES]);
+    if (get_last_game_path(last_game_path) == 0) {
+      if (boot_last_game(last_game_path))
         return 0;
-      }
       // If we failed to load last played game, continue with normal logic
     }
   }
 
-  if (argc > 1)
+  // Quickplay start screen: last played game with Continue / Browse / Options
+  if (argc <= 1 && option_quickplay != 0) {
+    char last_game_path[MAX_PATH];
+    if (get_last_game_path(last_game_path) == 0) {
+      FILE *rom = fopen(last_game_path, "rb");
+
+      if (rom != NULL) {
+        fclose(rom);
+
+        while (1) {
+          u32 choice = home_screen(last_game_path);
+
+          if (choice == HOME_CONTINUE) {
+            if (boot_last_game(last_game_path))
+              return 0;
+            clear_screen(COLOR32_BLACK);
+            error_msg(MSG[MSG_ERR_LOAD_GAMEPACK], CONFIRMATION_CONT);
+            break;
+          }
+          else if (choice == HOME_OPTIONS) {
+            menu();
+            if (gamepak_filename[0] != 0) {
+              game_ready = 1;  // a game was loaded from the menu
+              break;
+            }
+          }
+          else
+            break;
+        }
+      }
+    }
+  }
+
+  if (game_ready)
+  {
+  }
+  else if (argc > 1)
   {
     if (load_gamepak((char *)argv[1]) < 0)
     {

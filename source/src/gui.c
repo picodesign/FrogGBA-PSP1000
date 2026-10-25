@@ -286,7 +286,13 @@ u32 num_overlays = 1; // Start with 1 for "None"
 static u32 overlays_scanned = 0; // Flag to track if we've already scanned
 
 // Recent games tracking system
-#define MAX_RECENT_GAMES 5
+#define MAX_RECENT_GAMES 4
+
+/* Quickplay start screen and recent list, stored in the free config word (see CONFIG_EXTRA_INDEX) */
+u32 option_quickplay = 1;
+u32 option_recent_list = 0;
+#define CONFIG_BIT_NO_QUICKPLAY  (1 << 2)
+#define CONFIG_BIT_RECENTS       (1 << 3)
 static char recent_games[MAX_RECENT_GAMES][MAX_PATH];
 static int num_recent_games = 0;
 static const char *recent_games_display[MAX_RECENT_GAMES];
@@ -818,14 +824,14 @@ s32 load_file(const char **wildcards, char *result, char *default_dir_name)
       }
     }
     
-    if (num_recent_games > 0 && is_rom_browsing) {
+    if (option_recent_list && num_recent_games > 0 && is_rom_browsing) {
       // Add separator
       file_list[num[FILE_LIST]] = (char *)safe_malloc(strlen("--- Recent Games ---") + 1);
-      sprintf(file_list[num[FILE_LIST]], "--- Recent Games ---");
+      sprintf(file_list[num[FILE_LIST]], FR("--- Recent Games ---", "--- Jeux r\001cents ---"));
       num[FILE_LIST]++;
       
       // Add recent games
-      for (i = 0; i < num_recent_games && i < 5; i++) {
+      for (i = 0; i < num_recent_games && i < MAX_RECENT_GAMES; i++) {
         // Extract just the filename from the full path for display
         char *filename = strrchr(recent_games[i], '/');
         if (filename) {
@@ -922,7 +928,7 @@ s32 load_file(const char **wildcards, char *result, char *default_dir_name)
     scePowerUnlock(0);
 
     // Only sort the normal files, not recent games
-    if (num_recent_games > 0 && is_rom_browsing) {
+    if (option_recent_list && num_recent_games > 0 && is_rom_browsing) {
       // Sort only the files after the recent games section
       int recent_section_size = num_recent_games + 2; // +2 for the two separator lines
       if (num[FILE_LIST] > recent_section_size) {
@@ -1378,7 +1384,7 @@ u32 menu(void)
   
   // Only do this initialization once
   static int menu_initialized = 0;
-  if (!menu_initialized) {
+  {  /* strings follow the language, so refresh them on every call */
     
     // Set up global yes/no options first
     global_yes_no_options[0] = MSG[MSG_NO];
@@ -1387,6 +1393,10 @@ u32 menu(void)
     // Set up overlay menu with MSG and global yes_no_options now available
     init_overlay_menu_late();
     overlay_options_global[1].options = (void*)global_yes_no_options;
+
+    strcpy(overlay_names[0], FR("None", "Aucune"));
+    saving_options_global[0].display_string = FR("Resume last game: %s", "Reprendre le dernier jeu : %s");
+    saving_options_global[1].display_string = FR("Auto save/load state: %s", "Sauvegarde auto de l'\001tat : %s");
     
     menu_initialized = 1;
   }
@@ -1479,7 +1489,7 @@ u32 menu(void)
 
   const char *aspect_ratio_options[] =
   {
-    "Core Provided (3:2)", "Zoom (Fill Screen)", "Stretch (Full PSP)"
+    FR("Core Provided (3:2)", "Image d'origine (3:2)"), FR("Zoom (Fill Screen)", "Zoom (remplir l'\001cran)"), FR("Stretch (Full PSP)", "\020tirer (plein \001cran PSP)")
   };
 
   // Since we can't add messages to the message system, use direct string pointers cast as message indices
@@ -1497,26 +1507,26 @@ u32 menu(void)
 
   const char *gamepad_config_buttons[] =
   {
-    "Up", 
-    "Down",
-    "Left",
-    "Right",
-    "A",
-    "B",
-    "L",
-    "R",
-    "START",
-    "SELECT",
-    "menu",
-    "fast forward",
-    "load state",
-    "save state",
-    "RAPID FIRE A",
-    "RAPID FIRE B",
-    "RAPID FIRE L",
-    "RAPID FIRE R",
-    "show fps",
-    "none"
+    MSG[MSG_PAD_MENU_CFG_0],
+    MSG[MSG_PAD_MENU_CFG_1],
+    MSG[MSG_PAD_MENU_CFG_2],
+    MSG[MSG_PAD_MENU_CFG_3],
+    MSG[MSG_PAD_MENU_CFG_4],
+    MSG[MSG_PAD_MENU_CFG_5],
+    MSG[MSG_PAD_MENU_CFG_6],
+    MSG[MSG_PAD_MENU_CFG_7],
+    MSG[MSG_PAD_MENU_CFG_8],
+    MSG[MSG_PAD_MENU_CFG_9],
+    MSG[MSG_PAD_MENU_CFG_10],
+    MSG[MSG_PAD_MENU_CFG_11],
+    MSG[MSG_PAD_MENU_CFG_12],
+    MSG[MSG_PAD_MENU_CFG_13],
+    MSG[MSG_PAD_MENU_CFG_14],
+    MSG[MSG_PAD_MENU_CFG_15],
+    MSG[MSG_PAD_MENU_CFG_16],
+    MSG[MSG_PAD_MENU_CFG_17],
+    MSG[MSG_PAD_MENU_CFG_18],
+    MSG[MSG_PAD_MENU_CFG_19]
   };
 
   auto void choose_menu(MenuType *new_menu);
@@ -1767,6 +1777,8 @@ u32 menu(void)
 	option_button_mapping = 0; // Default to X/O mapping
 	option_resume_on_boot = 0; // Default to off
 	option_auto_save_state = 0; // Default to off
+	option_quickplay = 1;
+	option_recent_list = 0;
 	psp_fps_debug = 0;
 	option_frameskip_type = FRAMESKIP_AUTO;
 	option_frameskip_value = 9;
@@ -2033,11 +2045,11 @@ u32 menu(void)
 
     NUMERIC_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_1], &option_screen_mag, 201, MSG_OPTION_MENU_HELP_1, 1),
 
-    {NULL, NULL, NULL, "Aspect Ratio: %s", (void*)aspect_ratio_options, &option_aspect_ratio, 3, 0, 2, STRING_SELECTION_OPTION},
+    {NULL, NULL, NULL, FR("Aspect Ratio: %s", "Format d'image : %s"), (void*)aspect_ratio_options, &option_aspect_ratio, 3, 0, 2, STRING_SELECTION_OPTION},
 
     STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_2], screen_filter_options, &option_screen_filter, 3, MSG_OPTION_MENU_HELP_2, 3),
 
-    {NULL, NULL, NULL, "Compatibility Mode: %s", (void*)on_off_options, &option_compatibility_mode, 2, MSG_OPTION_MENU_HELP_7, 5, STRING_SELECTION_OPTION},
+    {NULL, NULL, NULL, FR("Compatibility Mode: %s", "Mode de compatibilit\001 : %s"), (void*)on_off_options, &option_compatibility_mode, 2, MSG_OPTION_MENU_HELP_7, 5, STRING_SELECTION_OPTION},
 
     STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_SHOW_FPS], on_off_options, &psp_fps_debug, 2, MSG_OPTION_MENU_HELP_SHOW_FPS, 6),
 
@@ -2164,7 +2176,7 @@ u32 menu(void)
 
     SUBMENU_OPTION(&analog_config_menu, MSG[MSG_MAIN_MENU_6], MSG_MAIN_MENU_HELP_6, 8),
 
-    SUBMENU_OPTION(&saving_menu_global, "Saving options", 0, 9),
+    SUBMENU_OPTION(&saving_menu_global, UI(UI_SYS_SAVING), 0, 9),
 
     SUBMENU_OPTION(&cheats_misc_menu, MSG[MSG_MAIN_MENU_CHEAT], MSG_MAIN_MENU_HELP_CHEAT, 10),
 
@@ -2278,8 +2290,10 @@ u32 menu(void)
     TAB_STRING(UI(UI_SYS_BACKUP), UI(UI_D_BACKUP), update_backup_options, &option_update_backup, 2, 2),
     TAB_SUBMENU(&saving_menu_global, UI(UI_SYS_SAVING), UI(UI_D_SAVING), 3),
     TAB_STRING(UI(UI_SYS_FONT), UI(UI_D_FONT), font_options, &option_font, 3, 4),
-    TAB_ACTION(UI(UI_SYS_DEFAULTS), UI(UI_D_DEFAULTS), ACT_DEFAULTS, 5),
-    TAB_ACTION(UI(UI_SYS_QUIT), UI(UI_D_QUIT), ACT_QUIT, 6)
+    TAB_STRING(UI(UI_SYS_QUICKPLAY), UI(UI_D_QUICKPLAY), on_off_options, &option_quickplay, 2, 5),
+    TAB_STRING(UI(UI_SYS_RECENTS), UI(UI_D_RECENTS), on_off_options, &option_recent_list, 2, 6),
+    TAB_ACTION(UI(UI_SYS_DEFAULTS), UI(UI_D_DEFAULTS), ACT_DEFAULTS, 7),
+    TAB_ACTION(UI(UI_SYS_QUIT), UI(UI_D_QUIT), ACT_QUIT, 8)
   };
   MAKE_MENU(tab_system, NULL, NULL);
 
@@ -3111,7 +3125,8 @@ s32 save_config_file(void)
       file_options[25 + i] = gamepad_config_map[i];
     }
 
-    file_options[CONFIG_EXTRA_INDEX] = (CONFIG_EXTRA_MAGIC << 8) | (option_font & 3);
+    file_options[CONFIG_EXTRA_INDEX] = (CONFIG_EXTRA_MAGIC << 8) | (option_font & 3) |
+      (option_quickplay ? 0 : CONFIG_BIT_NO_QUICKPLAY) | (option_recent_list ? CONFIG_BIT_RECENTS : 0);
 
     FILE_WRITE_ARRAY(config_file, file_options);
     FILE_CLOSE(config_file);
@@ -3244,8 +3259,14 @@ s32 load_config_file(void)
       option_auto_save_state = file_options[24] % 2; // 0 = Off, 1 = On
       
       option_font = 0;  // Fixed, also for config files written before this setting existed
+      option_quickplay = 1;
+      option_recent_list = 0;
       if ((file_options[CONFIG_EXTRA_INDEX] >> 8) == CONFIG_EXTRA_MAGIC)
+      {
         option_font = (file_options[CONFIG_EXTRA_INDEX] & 3) % 3;
+        option_quickplay = (file_options[CONFIG_EXTRA_INDEX] & CONFIG_BIT_NO_QUICKPLAY) ? 0 : 1;
+        option_recent_list = (file_options[CONFIG_EXTRA_INDEX] & CONFIG_BIT_RECENTS) ? 1 : 0;
+      }
 
       // Update memory timing when loading config
       set_compatibility_mode(option_compatibility_mode);
@@ -3283,6 +3304,8 @@ s32 load_config_file(void)
   option_button_mapping = 0;  // Default to X/O mapping
   option_resume_on_boot = 0;  // Default to Off
   option_auto_save_state = 0; // Default to Off
+  option_quickplay = 1;
+  option_recent_list = 0;
 
   return -1;
 }
@@ -3521,3 +3544,124 @@ static void save_bmp(const char *path, u16 *screen_image)
   free(bmp_data);
 }
 
+
+
+/* Start screen of the Quickplay feature: last played game, Continue / Browse / Options.
+   game_path is the full path of the last game. */
+#define HOME_COLOR_BG     COLOR15( 7, 14, 11)
+#define HOME_COLOR_BAR    COLOR15( 5, 10,  8)
+#define HOME_COLOR_PANEL  COLOR15( 6, 11,  9)
+#define HOME_COLOR_LINE   COLOR15(11, 19, 15)
+#define HOME_COLOR_TEXT   COLOR15(26, 30, 28)
+#define HOME_COLOR_DIM    COLOR15(17, 24, 20)
+#define HOME_COLOR_HI_BG  COLOR15(31, 31, 28)
+#define HOME_COLOR_HI_FG  COLOR15( 4,  8,  7)
+
+u32 home_screen(const char *game_path)
+{
+  char time_str[40];
+  char batt_str[40];
+  char name[MAX_FILE];
+  char line[64];
+  u16 color_batt_life = COLOR15_WHITE;
+  u32 counter = 0;
+  u32 result = HOME_NONE;
+  const char *base;
+  char *dot;
+  u32 len, pos, k, y;
+
+  base = strrchr(game_path, '/');
+  base = (base != NULL) ? base + 1 : game_path;
+  strncpy(name, base, MAX_FILE - 1);
+  name[MAX_FILE - 1] = 0;
+  dot = strrchr(name, '.');
+  if (dot != NULL)
+    *dot = 0;
+
+  while (result == HOME_NONE)
+  {
+    GUI_ACTION_TYPE gui_action;
+
+    if ((counter % 30) == 0)
+      update_status_string(time_str, batt_str, &color_batt_life);
+    counter++;
+
+    clear_screen(COLOR15_TO_32(HOME_COLOR_BG));
+
+    draw_box_fill(0, 0, 479, 16, HOME_COLOR_BAR);
+    print_string("FrogGBA", 6, 2, HOME_COLOR_HI_BG, BG_NO_FILL);
+    print_string(time_str, TIME_STATUS_POS_X, 2, HOME_COLOR_DIM, BG_NO_FILL);
+    print_string(batt_str, BATT_STATUS_POS_X, 2, color_batt_life, BG_NO_FILL);
+
+    /* game card */
+    draw_box_fill(40, 44, 439, 150, HOME_COLOR_PANEL);
+    draw_hline(40, 439, 44, HOME_COLOR_LINE);
+    print_string(UI(UI_HOME_LAST), 56, 56, HOME_COLOR_DIM, BG_NO_FILL);
+
+    /* title wrapped on two lines of 60 characters */
+    len = strlen(name);
+    pos = 0;
+    for (k = 0; (k < 2) && (pos < len); k++)
+    {
+      u32 cut = len - pos;
+
+      if (cut > 60)
+      {
+        cut = 60;
+        while ((cut > 0) && (name[pos + cut] != ' '))
+          cut--;
+        if (cut == 0)
+          cut = 60;
+      }
+      memcpy(line, name + pos, cut);
+      line[cut] = 0;
+      print_string(line, 56, 78 + (k * 16), HOME_COLOR_TEXT, BG_NO_FILL);
+      pos += cut;
+      while (name[pos] == ' ')
+        pos++;
+    }
+
+    print_string((option_auto_save_state != 0) ? UI(UI_HOME_RESUME) : UI(UI_HOME_RESTART),
+                 56, 124, HOME_COLOR_DIM, BG_NO_FILL);
+
+    /* buttons */
+    for (k = 0; k < 3; k++)
+    {
+      const char *label = (k == 0) ? UI(UI_HOME_CONTINUE) : (k == 1) ? UI(UI_HOME_BROWSE) : UI(UI_HOME_OPTIONS);
+
+      y = 166 + (k * 24);
+      if (k == 0)
+      {
+        draw_box_fill(40, y, 439, y + 19, HOME_COLOR_HI_BG);
+        print_string(label, 56, y + 4, HOME_COLOR_HI_FG, BG_NO_FILL);
+      }
+      else
+      {
+        draw_box_fill(40, y, 439, y + 19, HOME_COLOR_PANEL);
+        print_string(label, 56, y + 4, HOME_COLOR_TEXT, BG_NO_FILL);
+      }
+      {
+        const char *key = (k == 0) ? ((option_button_mapping != 0) ? "O" : "X") : (k == 1) ? "[]" : "SELECT";
+
+        print_string(key, 423 - (strlen(key) * FONTWIDTH), y + 4,
+                     (k == 0) ? HOME_COLOR_HI_FG : HOME_COLOR_DIM, BG_NO_FILL);
+      }
+    }
+
+    draw_box_fill(0, 250, 479, 271, HOME_COLOR_BAR);
+
+    __draw_volume_status(1);
+    flip_screen(1);
+
+    gui_action = get_gui_input();
+
+    if (gui_action == CURSOR_SELECT)
+      result = HOME_CONTINUE;
+    else if (gui_action == CURSOR_BACK)
+      result = HOME_BROWSE;
+    else if (gui_action == CURSOR_DEFAULT)
+      result = HOME_OPTIONS;
+  }
+
+  return result;
+}

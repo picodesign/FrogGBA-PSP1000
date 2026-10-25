@@ -5030,7 +5030,7 @@ void build_overlay_cache(void) {
   if (current_quality != OVERLAY_QUALITY_FULL) {
     extern void error_msg(const char *text, u8 confirm);
     char msg[80];
-    sprintf(msg, "Overlay: %d pixels, using %s quality", 
+    sprintf(msg, FR("Overlay: %d pixels, using %s quality", "Bordure : %d pixels, qualit\001 %s"), 
             total_overlay_pixels,
             current_quality == OVERLAY_QUALITY_HALF ? "50%" : "25%");
     error_msg(msg, 0);

@@ -88,6 +88,17 @@ const char *ui_text_table[LANG_COUNT][UI_END] =
     [UI_HINT_CHANGE] = "Change",
     [UI_FILTER_SHARP] = "SHARP",
     [UI_LANG_FRENCH]  = "Fran" A_CCEDIL "ais",
+
+    [UI_SYS_QUICKPLAY] = "Quickplay : %s",
+    [UI_SYS_RECENTS]   = "Recent games list : %s",
+    [UI_D_QUICKPLAY]   = "Show a start screen with the last game and a Continue button that resumes the auto save.",
+    [UI_D_RECENTS]     = "Show the last 4 games at the top of the game list.",
+    [UI_HOME_LAST]     = "LAST PLAYED",
+    [UI_HOME_CONTINUE] = "Continue",
+    [UI_HOME_BROWSE]   = "Browse games",
+    [UI_HOME_OPTIONS]  = "Options",
+    [UI_HOME_RESUME]   = "Resumes from your last auto save.",
+    [UI_HOME_RESTART]  = "Starts the game from the beginning.",
   },
 
   /* French */
@@ -172,5 +183,16 @@ const char *ui_text_table[LANG_COUNT][UI_END] =
     [UI_HINT_CHANGE] = "Changer",
     [UI_FILTER_SHARP] = "SHARP",
     [UI_LANG_FRENCH]  = "Fran" A_CCEDIL "ais",
+
+    [UI_SYS_QUICKPLAY] = "Quickplay : %s",
+    [UI_SYS_RECENTS]   = "Liste jeux r" A_EACUTE "cents : %s",
+    [UI_D_QUICKPLAY]   = "Affiche un " A_EACUTE "cran d'accueil avec le dernier jeu et un bouton Continuer qui reprend la sauvegarde auto.",
+    [UI_D_RECENTS]     = "Affiche les 4 derniers jeux en haut de la liste des jeux.",
+    [UI_HOME_LAST]     = "DERNIER JEU",
+    [UI_HOME_CONTINUE] = "Continuer",
+    [UI_HOME_BROWSE]   = "Parcourir les jeux",
+    [UI_HOME_OPTIONS]  = "Options",
+    [UI_HOME_RESUME]   = "Reprend o" A_UGRAVE " vous " A_EACUTE "tiez, avec la derni" A_EGRAVE "re sauvegarde auto.",
+    [UI_HOME_RESTART]  = "Lance le jeu depuis le d" A_EACUTE "but.",
   },
 };

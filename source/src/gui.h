@@ -40,6 +40,10 @@ s32 load_dir_cfg(char *file_name);
 
 u32 menu(void);
 
+enum { HOME_NONE = 0, HOME_CONTINUE, HOME_BROWSE, HOME_OPTIONS };
+u32 home_screen(const char *game_path);
+extern u32 option_quickplay;
+
 void action_loadstate(void);
 void action_savestate(void);
 
