@@ -62,6 +62,17 @@ static u16 *screen_texture = (u16 *)(0x4000000 + (PSP_FRAME_SIZE * 2));
 void *disp_frame;
 void *draw_frame;
 
+// Sharp bilinear: the GBA image is first drawn with nearest filtering at 2x into
+// an off-screen buffer in VRAM, then scaled down to the final size with bilinear
+// filtering. Pixel edges stay crisp while the non-integer scale is smoothed out.
+#define SHARP_BUFFER_OFFSET (PSP_FRAME_SIZE * 2 + GBA_LINE_SIZE * 256 * 2)
+#define SHARP_BUFFER_WIDTH  (GBA_SCREEN_WIDTH * 2)
+#define SHARP_BUFFER_HEIGHT (GBA_SCREEN_HEIGHT * 2)
+
+static u32 sharp_active = 0;
+static u32 sharp_dx, sharp_dy, sharp_dw, sharp_dh;
+static u32 sharp_fallback_linear = 1;
+
 
 typedef struct
 {
@@ -2668,16 +2679,23 @@ static void expand_brighten_partial_alpha(u32 *screen_src_ptr, u16 *screen_dest_
 // Render an OBJ layer from start to end, depending on the type (1D or 2D)
 // stored in dispcnt.
 
+extern u32 prof_vid_obj_us;
+
 #define render_obj_layer(type, dest, _start, _end)                            \
-  current_layer &= ~0x04;                                                     \
-  if ((dispcnt & 0x40) != 0)                                                  \
-  {                                                                           \
-    render_scanline_obj_##type##_1D(current_layer, _start, _end, dest);       \
-  }                                                                           \
-  else                                                                        \
-  {                                                                           \
-    render_scanline_obj_##type##_2D(current_layer, _start, _end, dest);       \
-  }                                                                           \
+  do {                                                                        \
+    u64 obj_prof_t0 = (psp_fps_debug != 0) ? ticker() : 0;                    \
+    current_layer &= ~0x04;                                                   \
+    if ((dispcnt & 0x40) != 0)                                                \
+    {                                                                         \
+      render_scanline_obj_##type##_1D(current_layer, _start, _end, dest);     \
+    }                                                                         \
+    else                                                                      \
+    {                                                                         \
+      render_scanline_obj_##type##_2D(current_layer, _start, _end, dest);     \
+    }                                                                         \
+    if (psp_fps_debug != 0)                                                   \
+      prof_vid_obj_us += (u32)(ticker() - obj_prof_t0);                       \
+  } while (0)
 
 
 // Render a target all the way with the background color as taken from the
@@ -3384,12 +3402,60 @@ static void render_scanline_window_##type(u16 *scanline, u16 dispcnt)         \
 render_scanline_window_builder(tile);
 render_scanline_window_builder(bitmap);
 
+// Windows only change what is drawn if the layers they enable differ from the
+// ones enabled outside of them. Many games set up windows whose WININ and
+// WINOUT enable the same layers; for those lines the whole scanline can be
+// rendered as one segment instead of splitting it per window.
+// Returns nonzero if every window touching this scanline enables exactly the
+// layers WINOUT does. Not used with OBJ windows or fade effects, where
+// WINDOW_INSIDE changes how the backdrop is drawn.
+static u32 windows_do_not_change_tile_line(u16 dispcnt)
+{
+  u16 bldcnt = pIO_REG(REG_BLDCNT);
+  u16 winin  = pIO_REG(REG_WININ);
+  u8  window_out_enable = pIO_REG(REG_WINOUT) & 0x3F;
+
+  if ((dispcnt & 0x8000) != 0)
+    return 0;
+
+  if (((bldcnt >> 6) & 0x03) >= 2)
+    return 0;
+
+  if ((dispcnt & 0x2000) != 0)
+  {
+    window_coords(0);
+    if (!((window_0_x1 == 240) && (window_0_x2 == 240)) && (window_0_enable != window_out_enable))
+      return 0;
+  }
+
+  if ((dispcnt & 0x4000) != 0)
+  {
+    window_coords(1);
+    if (!((window_1_x1 == 240) && (window_1_x2 == 240)) && (window_1_enable != window_out_enable))
+      return 0;
+  }
+
+  return 1;
+}
+
 void update_scanline(void)
 {
   u16 dispcnt = pIO_REG(REG_DISPCNT);
   u16 *screen_offset = screen_texture + (pIO_REG(REG_VCOUNT) << 8);
   u8  video_mode = dispcnt & 0x07;
   current_video_mode = video_mode;  // Track for profiling
+
+  u64 pf0 = 0, pf1 = 0, pf2 = 0;
+  if (psp_fps_debug != 0)
+  {
+    pf0 = ticker();
+    if (render_condition_alpha && ((pIO_REG(REG_BLDCNT) >> 6) & 0x03) == 1)
+      prof_vid_alpha_lines++;
+    if (obj_alpha_count[pIO_REG(REG_VCOUNT)] != 0)
+      prof_vid_objalpha_lines++;
+    if ((dispcnt >> 13) != 0)
+      prof_vid_win_lines++;
+  }
   
   // Reset blend counter at start of frame (scanline 0)
   if (pIO_REG(REG_VCOUNT) == 0) {
@@ -3411,6 +3477,12 @@ void update_scanline(void)
 
   order_layers((dispcnt >> 8) & active_layers[video_mode]);
 
+  if (psp_fps_debug != 0)
+  {
+    pf1 = ticker();
+    prof_vid_order_us += (u32)(pf1 - pf0);
+  }
+
   // If the screen is in in forced blank draw pure white.
   if ((dispcnt & 0x80) != 0)
   {
@@ -3422,7 +3494,27 @@ void update_scanline(void)
     {
       if ((dispcnt >> 13) != 0)
       {
-        render_scanline_window_tile(screen_offset, dispcnt);
+        if (windows_do_not_change_tile_line(dispcnt))
+        {
+          u8 window_out_enable = pIO_REG(REG_WINOUT) & 0x3F;
+
+          if (psp_fps_debug != 0)
+            prof_vid_winfast_lines++;
+
+          if (window_out_enable == 0x3F)
+          {
+            render_scanline_tile(screen_offset, dispcnt);
+          }
+          else
+          {
+            render_scanline_layer_functions_tile();
+            render_scanline_conditional_tile(0, 240, screen_offset, window_out_enable, dispcnt, pIO_REG(REG_BLDCNT), layer_renderers);
+          }
+        }
+        else
+        {
+          render_scanline_window_tile(screen_offset, dispcnt);
+        }
       }
       else
       {
@@ -3473,6 +3565,12 @@ void update_scanline(void)
     }
   }
 
+  if (psp_fps_debug != 0)
+  {
+    pf2 = ticker();
+    prof_vid_render_us += (u32)(pf2 - pf1);
+  }
+
   // Apply color correction if enabled (optimized with lookup tables)
   if (option_color_correction == 1) // GPSP mode - fast LUT lookup
   {
@@ -3489,6 +3587,9 @@ void update_scanline(void)
     }
   }
   // option_color_correction == 0 means Off - no processing
+
+  if (psp_fps_debug != 0)
+    prof_vid_post_us += (u32)(ticker() - pf2);
 
   affine_reference_x[0] += *((s16 *)io_registers + REG_BG2PB);
   affine_reference_y[0] += *((s16 *)io_registers + REG_BG2PD);
@@ -3668,6 +3769,16 @@ static void generate_display_list(float mag)
   // Clamp to screen bounds to prevent crashes
   dx = (new_dx < 0) ? 0 : (new_dx > PSP_SCREEN_WIDTH - dw) ? PSP_SCREEN_WIDTH - dw : new_dx;
   dy = (new_dy < 0) ? 0 : (new_dy > PSP_SCREEN_HEIGHT - dh) ? PSP_SCREEN_HEIGHT - dh : new_dy;
+
+  // Sharp bilinear only helps for scales between 1x and 2x; integer scales are
+  // already exact with nearest filtering.
+  sharp_active = (option_screen_filter == 2) && (mag > 1.0f) && (mag < 2.0f) &&
+                 (dh <= PSP_SCREEN_HEIGHT);
+  sharp_dx = dx;
+  sharp_dy = dy;
+  sharp_dw = dw;
+  sharp_dh = dh;
+  sharp_fallback_linear = ((float)(int)mag != mag);
   
   /*
   debug_log = fopen("froggba_debug.log", "a");
@@ -3724,9 +3835,92 @@ static void generate_display_list(float mag)
   sceGuFinish();
 }
 
+// Draw a texture region as vertical sprite slices, which keeps the GPU's texture
+// cache happy when scaling. The source region is src_w x src_h texels starting at
+// (src_x, src_y); the destination is a dst_w x dst_h rectangle at (dst_x, dst_y).
+static void draw_sprite_slices(u32 src_x, u32 src_y, u32 src_w, u32 src_h,
+                               u32 dst_x, u32 dst_y, u32 dst_w, u32 dst_h)
+{
+  u32 slice_count = (src_w + SLICE - 1) / SLICE;
+  Vertex *vertices = (Vertex *)sceGuGetMemory(slice_count * 2 * sizeof(Vertex));
+  Vertex *v = vertices;
+  u32 i;
+
+  if (vertices == NULL)
+    return;
+
+  memset(vertices, 0, slice_count * 2 * sizeof(Vertex));
+
+  for (i = 0; i < src_w; i += SLICE)
+  {
+    u32 end = (i + SLICE < src_w) ? (i + SLICE) : src_w;
+
+    v[0].u = src_x + i;
+    v[0].v = src_y;
+    v[0].x = dst_x + (i * dst_w) / src_w;
+    v[0].y = dst_y;
+
+    v[1].u = src_x + end;
+    v[1].v = src_y + src_h;
+    v[1].x = dst_x + (end * dst_w) / src_w;
+    v[1].y = dst_y + dst_h;
+
+    v += 2;
+  }
+
+  sceGuDrawArray(GU_SPRITES, GU_TEXTURE_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_2D, slice_count * 2, 0, vertices);
+}
+
+static void bitbilt_gu_sharp(void)
+{
+  sceGuStart(GU_DIRECT, display_list);
+
+  // Pass 1: nearest-neighbour 2x into the off-screen buffer
+  sceGuDrawBufferList(GU_PSM_5551, (void *)SHARP_BUFFER_OFFSET, PSP_LINE_SIZE);
+  sceGuOffset(2048 - (SHARP_BUFFER_WIDTH / 2), 2048 - (SHARP_BUFFER_HEIGHT / 2));
+  sceGuViewport(2048, 2048, SHARP_BUFFER_WIDTH, SHARP_BUFFER_HEIGHT);
+  sceGuScissor(0, 0, SHARP_BUFFER_WIDTH, SHARP_BUFFER_HEIGHT);
+  sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+  draw_sprite_slices(0, 0, GBA_SCREEN_WIDTH, GBA_SCREEN_HEIGHT,
+                     0, 0, SHARP_BUFFER_WIDTH, SHARP_BUFFER_HEIGHT);
+
+  // Pass 2: bilinear from the off-screen buffer to the real screen
+  sceGuDrawBufferList(GU_PSM_5551, draw_frame, PSP_LINE_SIZE);
+  sceGuOffset(2048 - (PSP_SCREEN_WIDTH / 2), 2048 - (PSP_SCREEN_HEIGHT / 2));
+  sceGuViewport(2048, 2048, PSP_SCREEN_WIDTH, PSP_SCREEN_HEIGHT);
+  sceGuScissor(0, 0, PSP_SCREEN_WIDTH, PSP_SCREEN_HEIGHT);
+  sceGuClear(GU_COLOR_BUFFER_BIT | GU_FAST_CLEAR_BIT);
+
+  sceGuTexImage(0, 512, 512, PSP_LINE_SIZE, (void *)(0x04000000 + SHARP_BUFFER_OFFSET));
+  sceGuTexFlush();
+  sceGuTexSync();
+  sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+
+  // Stay one texel inside the buffer on every side so bilinear never reads the
+  // unused part of the 512x512 texture.
+  draw_sprite_slices(1, 1, SHARP_BUFFER_WIDTH - 2, SHARP_BUFFER_HEIGHT - 2,
+                     sharp_dx, sharp_dy, sharp_dw, sharp_dh);
+
+  // Put the GBA screen texture back for everything else
+  sceGuTexImage(0, 256, 256, GBA_LINE_SIZE, screen_texture);
+  sceGuTexFlush();
+
+  sceGuFinish();
+  sceGuSync(0, GU_SYNC_FINISH);
+}
+
 static void bitbilt_gu(void)
 {
   sceKernelDcacheWritebackAll();
+
+  if (sharp_active != 0)
+  {
+    bitbilt_gu_sharp();
+
+    // Apply overlay AFTER GPU finishes to avoid conflicts
+    render_overlay();
+    return;
+  }
 
   sceGuStart(GU_DIRECT, display_list);
 
@@ -3744,6 +3938,10 @@ static void generate_display_list_stretch(void)
 {
   u32 i, dx, dy, dw, dh;
   Vertex *vertices, *vertices_tmp;
+
+  // Sharp bilinear does not apply to the non-uniform stretch mode
+  sharp_active = 0;
+  sharp_fallback_linear = 1;
 
   // Stretch to fill entire PSP screen
   dw = PSP_SCREEN_WIDTH;  // 480 (instead of 240*mag)
@@ -3872,7 +4070,14 @@ void video_resolution_small(void)
   sceGuClearColor(0);
   sceGuClear(GU_COLOR_BUFFER_BIT | GU_FAST_CLEAR_BIT);
 
-  sceGuTexFilter(option_screen_filter, option_screen_filter);
+  // Filter 2 is "sharp bilinear": it needs its own two-pass drawing when it is
+  // active; otherwise it falls back to nearest for exact scales and bilinear
+  // for the rest.
+  {
+    u32 gu_filter = (option_screen_filter == 1) ? GU_LINEAR :
+                    (option_screen_filter == 2 && sharp_fallback_linear) ? GU_LINEAR : GU_NEAREST;
+    sceGuTexFilter(gu_filter, gu_filter);
+  }
 
   sceGuFinish();
   sceGuSync(0, GU_SYNC_FINISH);

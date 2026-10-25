@@ -42,6 +42,10 @@
 #define PSP_CLOCK_266 1
 #define PSP_CLOCK_300 2
 #define PSP_CLOCK_333 3
+#define PSP_CLOCK_383 4
+#define PSP_CLOCK_403 5
+#define PSP_CLOCK_423 6
+#define PSP_CLOCK_OPTION_COUNT 7
 
 #define CONFIRMATION_NONE  0
 #define CONFIRMATION_CONT  1
@@ -79,6 +83,24 @@ extern u32 sleep_flag;
 
 extern u32 synchronize_flag;
 extern u32 psp_fps_debug;
+
+// Profiling counters, only updated while the FPS display is on
+extern u32 prof_page_loads;
+extern u32 prof_page_load_us;
+extern u32 prof_cache_flushes;
+extern u32 prof_cache_full_flushes;
+extern u32 prof_video_us;
+extern u32 prof_video_lines;
+extern u32 prof_flush_ro_full;
+extern u32 prof_flush_rw_full;
+extern u32 prof_sound_us;
+extern u32 prof_vid_order_us;
+extern u32 prof_vid_render_us;
+extern u32 prof_vid_post_us;
+extern u32 prof_vid_alpha_lines;
+extern u32 prof_vid_objalpha_lines;
+extern u32 prof_vid_win_lines;
+extern u32 prof_vid_winfast_lines;
 extern u32 option_color_correction;
 extern u32 option_button_mapping;
 extern u32 option_resume_on_boot;

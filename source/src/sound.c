@@ -857,6 +857,15 @@ void update_gbc_sound(u32 cpu_ticks)
   s32 current_sample, dest_sample;
   s8 *sample_data;
 
+  // Sound volume at 0% skips the mixing entirely to leave the CPU to rendering.
+  // Keep the tick bookkeeping current so nothing bursts when it is turned back on.
+  if (option_sound_volume == 0)
+  {
+    gbc_sound_last_cpu_ticks = cpu_ticks;
+    gbc_sound_partial_ticks = 0;
+    return;
+  }
+
   u64 count_ticks = delta_ticks(cpu_ticks, gbc_sound_last_cpu_ticks) * SOUND_FREQUENCY;
 
   buffer_ticks = FP08_24_TO_U32(count_ticks);

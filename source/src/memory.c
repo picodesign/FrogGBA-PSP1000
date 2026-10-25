@@ -2816,8 +2816,11 @@ u8 *load_gamepak_page(u32 physical_index)
   gamepak_memory_map[page_index].physical_index = physical_index;
   page_time++;
 
+  u64 prof_t0 = ticker();
   FILE_SEEK(gamepak_file_large, physical_index * (32 * 1024), SEEK_SET);
   FILE_READ(gamepak_file_large, swap_location, (32 * 1024));
+  prof_page_loads++;
+  prof_page_load_us += (u32)(ticker() - prof_t0);
 
   memory_map_read[(0x8000000 / (32 * 1024)) + physical_index] = swap_location;
   memory_map_read[(0xA000000 / (32 * 1024)) + physical_index] = swap_location;

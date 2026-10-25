@@ -1394,6 +1394,14 @@ u32 menu(void)
     MSG[MSG_ON]
   };
 
+  // Screen filter: off (nearest), bilinear, or sharp bilinear
+  const char *screen_filter_options[] =
+  {
+    MSG[MSG_OFF],
+    MSG[MSG_ON],
+    "SHARP"
+  };
+
   const char *scale_options[] =
   {
     MSG[MSG_SCN_SCALED_NONE],
@@ -1442,7 +1450,7 @@ u32 menu(void)
 
   const char *clock_speed_options[] =
   {
-    "222MHz", "266MHz", "300MHz", "333MHz"
+    "222MHz", "266MHz", "300MHz", "333MHz", "383MHz", "403MHz", "423MHz"
   };
 
   const char *image_format_options[] =
@@ -2010,7 +2018,7 @@ u32 menu(void)
 
     {NULL, NULL, NULL, "Aspect Ratio: %s", (void*)aspect_ratio_options, &option_aspect_ratio, 3, 0, 2, STRING_SELECTION_OPTION},
 
-    STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_2], on_off_options, &option_screen_filter, 2, MSG_OPTION_MENU_HELP_2, 3),
+    STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_2], screen_filter_options, &option_screen_filter, 3, MSG_OPTION_MENU_HELP_2, 3),
 
     {NULL, NULL, NULL, "Compatibility Mode: %s", (void*)on_off_options, &option_compatibility_mode, 2, MSG_OPTION_MENU_HELP_7, 5, STRING_SELECTION_OPTION},
 
@@ -2024,7 +2032,7 @@ u32 menu(void)
 
     NUMERIC_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_4], &option_frameskip_value, 10, MSG_OPTION_MENU_HELP_4, 10),
 
-    STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_5], clock_speed_options, &option_clock_speed, 4, MSG_OPTION_MENU_HELP_5, 11), 
+    STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_5], clock_speed_options, &option_clock_speed, PSP_CLOCK_OPTION_COUNT, MSG_OPTION_MENU_HELP_5, 11), 
 
     STRING_SELECTION_OPTION(NULL, MSG[MSG_OPTION_MENU_6], sound_volume_options, &option_sound_volume, 11, MSG_OPTION_MENU_HELP_6, 12),
 
@@ -2768,10 +2776,10 @@ s32 load_game_config_file(void)
 
       option_screen_scale   = file_options[0] % 4;
       option_screen_mag     = file_options[1] % 201;
-      option_screen_filter  = file_options[2] % 2;
+      option_screen_filter  = file_options[2] % 3;
       option_frameskip_type  = file_options[3] % 3;
       option_frameskip_value = file_options[4];
-      option_clock_speed     = file_options[5] % 4;
+      option_clock_speed     = file_options[5] % PSP_CLOCK_OPTION_COUNT;
       option_sound_volume   = file_options[6] % 11;
 
       for (i = 0; i < 16; i++)
@@ -2832,11 +2840,11 @@ s32 load_config_file(void)
 
       option_screen_scale   = file_options[0] % 4;
       option_screen_mag     = file_options[1] % 201;
-      option_screen_filter  = file_options[2] % 2;
+      option_screen_filter  = file_options[2] % 3;
       psp_fps_debug       = file_options[3] % 2;
       option_frameskip_type  = file_options[4] % 3;
       option_frameskip_value = file_options[5];
-      option_clock_speed     = file_options[6] % 4;
+      option_clock_speed     = file_options[6] % PSP_CLOCK_OPTION_COUNT;
       option_sound_volume   = file_options[7] % 11;
       option_stack_optimize = file_options[8] % 2;
       option_boot_mode      = file_options[9] % 2;

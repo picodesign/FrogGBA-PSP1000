@@ -67,6 +67,25 @@ u32 sleep_flag = 0;
 
 u32 synchronize_flag = 1;
 u32 psp_fps_debug = 0;
+
+u32 prof_page_loads = 0;
+u32 prof_page_load_us = 0;
+u32 prof_cache_flushes = 0;
+u32 prof_cache_full_flushes = 0;
+u32 prof_video_us = 0;
+u32 prof_video_lines = 0;
+u32 prof_flush_ro_full = 0;
+u32 prof_flush_rw_full = 0;
+u32 prof_sound_us = 0;
+u32 prof_vid_order_us = 0;
+u32 prof_vid_render_us = 0;
+u32 prof_vid_post_us = 0;
+u32 prof_vid_alpha_lines = 0;
+u32 prof_vid_objalpha_lines = 0;
+u32 prof_vid_win_lines = 0;
+u32 prof_vid_winfast_lines = 0;
+u32 prof_vid_obj_us = 0;
+static u32 prof_timer_overhead_us = 0;  // cost of one ticker() pair, calibrated on first use
 u32 option_color_correction = 0;
 u32 option_button_mapping = 0;  // 0 = X/O (X confirm, O cancel), 1 = O/X (O confirm, X cancel)
 u32 option_resume_on_boot = 0;  // 0 = off, 1 = on
@@ -343,7 +362,14 @@ u32 update_gba(void)
 
     if (gbc_sound_update != 0)
     {
-      update_gbc_sound(cpu_ticks);
+      if (psp_fps_debug != 0)
+      {
+        u64 s0 = ticker();
+        update_gbc_sound(cpu_ticks);
+        prof_sound_us += (u32)(ticker() - s0);
+      }
+      else
+        update_gbc_sound(cpu_ticks);
       gbc_sound_update = 0;
     }
 
@@ -368,7 +394,28 @@ u32 update_gba(void)
         if ((dispstat & 0x01) == 0)
         {
           if (!skip_next_frame)
-            update_scanline();
+          {
+            if (psp_fps_debug != 0)
+            {
+              if (prof_timer_overhead_us == 0)
+              {
+                u32 k;
+                u64 c0 = ticker();
+                for (k = 0; k < 1000; k++)
+                  (void)ticker();
+                prof_timer_overhead_us = (u32)(ticker() - c0) / 1000;
+                if (prof_timer_overhead_us == 0)
+                  prof_timer_overhead_us = 1;
+              }
+
+              u64 t0 = ticker();
+              update_scanline();
+              prof_video_us += (u32)(ticker() - t0);
+              prof_video_lines++;
+            }
+            else
+              update_scanline();
+          }
 
           // If in visible area also fire HDMA
           for (i = 0; i < 4; i++)
@@ -403,7 +450,14 @@ u32 update_gba(void)
             (*update_screen)();
           }
 
-          update_gbc_sound(cpu_ticks);
+          if (psp_fps_debug != 0)
+          {
+            u64 s0 = ticker();
+            update_gbc_sound(cpu_ticks);
+            prof_sound_us += (u32)(ticker() - s0);
+          }
+          else
+            update_gbc_sound(cpu_ticks);
           gbc_sound_update = 0;
 
           affine_reference_x[0] = (s32)(ADDRESS32(io_registers, 0x28) << 4) >> 4;
@@ -543,6 +597,10 @@ static void synchronize(void)
 {
   static s32 fps = 60;
   static s32 frames_drawn = 60;
+  static u32 shown_ord_ms = 0, shown_rnd_ms = 0, shown_pst_ms = 0, shown_alpha = 0, shown_objalpha = 0, shown_winl = 0, shown_winfast = 0, shown_obj_ms = 0;
+  static u32 shown_ro_full = 0, shown_rw_full = 0, shown_sound_ms = 0;
+  static u32 shown_overhead_ms = 0, shown_mode = 0, shown_win = 0, shown_bld = 0;
+  static u32 shown_loads = 0, shown_load_ms = 0, shown_flushes = 0, shown_full = 0, shown_video_ms = 0;
 
   u32 used_frameskip_type  = option_frameskip_type;
   u32 used_frameskip_value = option_frameskip_value;
@@ -553,6 +611,38 @@ static void synchronize(void)
   {
     fps = 3600 / vblank_count;
     frames_drawn = 60 - interval_skipped_frames;
+
+    shown_loads    = prof_page_loads;
+    shown_load_ms  = prof_page_load_us / 1000;
+    shown_flushes  = prof_cache_flushes;
+    shown_full     = prof_cache_full_flushes;
+    shown_ro_full  = prof_flush_ro_full;
+    shown_rw_full  = prof_flush_rw_full;
+    shown_sound_ms = prof_sound_us / 1000;
+    prof_flush_ro_full = prof_flush_rw_full = prof_sound_us = 0;
+    shown_ord_ms = prof_vid_order_us / 1000;
+    shown_rnd_ms = prof_vid_render_us / 1000;
+    shown_pst_ms = prof_vid_post_us / 1000;
+    shown_alpha = prof_vid_alpha_lines;
+    shown_objalpha = prof_vid_objalpha_lines;
+    shown_winl = prof_vid_win_lines;
+    shown_winfast = prof_vid_winfast_lines;
+    shown_obj_ms = prof_vid_obj_us / 1000;
+    prof_vid_obj_us = 0;
+    prof_vid_winfast_lines = 0;
+    prof_vid_order_us = prof_vid_render_us = prof_vid_post_us = 0;
+    prof_vid_alpha_lines = prof_vid_objalpha_lines = prof_vid_win_lines = 0;
+    {
+      u32 overhead_us = prof_video_lines * prof_timer_overhead_us;
+      shown_overhead_ms = overhead_us / 1000;
+      shown_video_ms = (prof_video_us > overhead_us ? prof_video_us - overhead_us : 0) / 1000;
+    }
+    shown_mode = pIO_REG(REG_DISPCNT) & 7;
+    shown_win  = pIO_REG(REG_DISPCNT) >> 13;
+    shown_bld  = (pIO_REG(REG_BLDCNT) >> 6) & 3;
+    prof_video_lines = 0;
+    prof_page_loads = prof_page_load_us = prof_cache_flushes = 0;
+    prof_cache_full_flushes = prof_video_us = 0;
 
     vblank_count = 0;
     frames = 0;
@@ -579,6 +669,21 @@ static void synchronize(void)
       sprintf(print_buffer, "%02ld(%02ld)", 
               (long)fps, (long)frames_drawn);
       print_string(print_buffer, 0, 0, COLOR15_WHITE, COLOR15_BLACK);
+
+      // Per-second profiling: ROM page loads, translation cache flushes, video time
+      sprintf(print_buffer, "pg %lu/%lums", (unsigned long)shown_loads, (unsigned long)shown_load_ms);
+      print_string(print_buffer, 0, 24, COLOR15_WHITE, COLOR15_BLACK);
+      sprintf(print_buffer, "fl %lu(%lu full: rom %lu ram %lu) snd %lums", (unsigned long)shown_flushes, (unsigned long)shown_full,
+              (unsigned long)shown_ro_full, (unsigned long)shown_rw_full, (unsigned long)shown_sound_ms);
+      print_string(print_buffer, 0, 36, COLOR15_WHITE, COLOR15_BLACK);
+      sprintf(print_buffer, "vid %lums (timer %lums)", (unsigned long)shown_video_ms, (unsigned long)shown_overhead_ms);
+      print_string(print_buffer, 0, 48, COLOR15_WHITE, COLOR15_BLACK);
+      sprintf(print_buffer, "mode %lu win %lu bld %lu", (unsigned long)shown_mode, (unsigned long)shown_win, (unsigned long)shown_bld);
+      print_string(print_buffer, 0, 60, COLOR15_WHITE, COLOR15_BLACK);
+      sprintf(print_buffer, "ord %lu rnd %lu (obj %lu) pst %lu ms", (unsigned long)shown_ord_ms, (unsigned long)shown_rnd_ms, (unsigned long)shown_obj_ms, (unsigned long)shown_pst_ms);
+      print_string(print_buffer, 0, 72, COLOR15_WHITE, COLOR15_BLACK);
+      sprintf(print_buffer, "lines alpha %lu objA %lu win %lu fast %lu", (unsigned long)shown_alpha, (unsigned long)shown_objalpha, (unsigned long)shown_winl, (unsigned long)shown_winfast);
+      print_string(print_buffer, 0, 84, COLOR15_WHITE, COLOR15_BLACK);
     }
   }
 
@@ -1134,6 +1239,18 @@ int set_cpu_clock(u32 psp_clock)
   {
     switch (psp_clock)
     {
+      case PSP_CLOCK_423:
+        ret = (*__scePowerSetClockFrequency)(423, 423, 211);
+        break;
+
+      case PSP_CLOCK_403:
+        ret = (*__scePowerSetClockFrequency)(403, 403, 201);
+        break;
+
+      case PSP_CLOCK_383:
+        ret = (*__scePowerSetClockFrequency)(383, 383, 191);
+        break;
+
       case PSP_CLOCK_333:
         ret = (*__scePowerSetClockFrequency)(333, 333, 166);
         break;

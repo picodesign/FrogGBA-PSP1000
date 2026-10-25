@@ -64,7 +64,7 @@ u32 ALIGN_DATA spsr[7];
 
 // Optimized cache sizes - balanced for performance and stability
 #define READONLY_CODE_CACHE_SIZE          (1024 * 1024 * 2)  // 2MB for ROM/BIOS (balanced size)
-#define WRITABLE_CODE_CACHE_SIZE          (1024 * 256 * 1)   // 256KB for RAM (increased for stability)
+#define WRITABLE_CODE_CACHE_SIZE          (1024 * 256 * 3)   // 768KB for RAM (was 256KB; Unbound refilled it 3-7x/s)
 
 // Enable cache invalidation reduction to fix micro stutters
 #define PSP_REDUCE_CACHE_INVALIDATION
@@ -3928,6 +3928,16 @@ void flush_translation_cache(TRANSLATION_REGION_TYPE translation_region, CACHE_F
   if (!readonly_code_cache || !writable_code_cache) {
     printf("flush_translation_cache: WARNING - caches not initialized yet\n");
     return;
+  }
+
+  prof_cache_flushes++;
+  if (flush_reason == FLUSH_REASON_FULL_CACHE)
+  {
+    prof_cache_full_flushes++;
+    if (translation_region == TRANSLATION_REGION_READONLY)
+      prof_flush_ro_full++;
+    else
+      prof_flush_rw_full++;
   }
 
 #ifdef PSP_REDUCE_CACHE_INVALIDATION
