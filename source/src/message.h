@@ -21,8 +21,11 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
-// Index 2 (French) has no table of its own: legacy strings stay English, new UI uses ui_text.h
-#define MSG  message[(option_language == 0) ? 0 : 1]
+// Index 0 = Japanese, 1 = English, 2 = French (message_fr). The Chinese tables are not selectable.
+#define MSG  ((option_language == 2) ? message_fr : message[(option_language == 0) ? 0 : 1])
+
+/* Pick a string by language for texts that are not in the message tables. */
+#define FR(en, fr)  ((option_language == 2) ? (fr) : (en))
 
 enum MESSAGE_ITEM
 {
@@ -279,5 +282,6 @@ enum MESSAGE_ITEM
 };
 
 extern const char *message[4][MSG_END];
+extern const char *message_fr[MSG_END];
 
 #endif /* MESSAGE_H */

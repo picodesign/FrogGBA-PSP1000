@@ -625,3 +625,7 @@ const char *message[4][MSG_END] =
 #include "text/message_ansi.h"
 };
 
+const char *message_fr[MSG_END] =
+{
+#include "text/message_fr.h"
+};

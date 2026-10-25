@@ -3772,7 +3772,7 @@ void load_state(char *savestate_filename)
       if (need_restore_overlay) {
         load_overlay(saved_overlay_name);
       }
-      error_msg("Save state file is corrupted or incomplete.", 1);
+      error_msg(FR("Save state file is corrupted or incomplete.", "Le fichier d'\001tat est corrompu ou incomplet."), 1);
       return;
     }
 
@@ -3833,7 +3833,7 @@ void save_state(char *savestate_filename, u16 *screen_capture)
       load_overlay(saved_overlay_name);
     }
     scePowerUnlock(0);
-    error_msg("Could not allocate memory for save state.", 1);
+    error_msg(FR("Could not allocate memory for save state.", "M\001moire insuffisante pour l'\001tat de sauvegarde."), 1);
     return;
   }
   memset(savestate_write_buffer, 0, SAVESTATE_SIZE);
