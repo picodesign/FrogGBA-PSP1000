@@ -3402,42 +3402,6 @@ static void render_scanline_window_##type(u16 *scanline, u16 dispcnt)         \
 render_scanline_window_builder(tile);
 render_scanline_window_builder(bitmap);
 
-// Windows only change what is drawn if the layers they enable differ from the
-// ones enabled outside of them. Many games set up windows whose WININ and
-// WINOUT enable the same layers; for those lines the whole scanline can be
-// rendered as one segment instead of splitting it per window.
-// Returns nonzero if every window touching this scanline enables exactly the
-// layers WINOUT does. Not used with OBJ windows or fade effects, where
-// WINDOW_INSIDE changes how the backdrop is drawn.
-static u32 windows_do_not_change_tile_line(u16 dispcnt)
-{
-  u16 bldcnt = pIO_REG(REG_BLDCNT);
-  u16 winin  = pIO_REG(REG_WININ);
-  u8  window_out_enable = pIO_REG(REG_WINOUT) & 0x3F;
-
-  if ((dispcnt & 0x8000) != 0)
-    return 0;
-
-  if (((bldcnt >> 6) & 0x03) >= 2)
-    return 0;
-
-  if ((dispcnt & 0x2000) != 0)
-  {
-    window_coords(0);
-    if (!((window_0_x1 == 240) && (window_0_x2 == 240)) && (window_0_enable != window_out_enable))
-      return 0;
-  }
-
-  if ((dispcnt & 0x4000) != 0)
-  {
-    window_coords(1);
-    if (!((window_1_x1 == 240) && (window_1_x2 == 240)) && (window_1_enable != window_out_enable))
-      return 0;
-  }
-
-  return 1;
-}
-
 void update_scanline(void)
 {
   u16 dispcnt = pIO_REG(REG_DISPCNT);
@@ -3494,27 +3458,7 @@ void update_scanline(void)
     {
       if ((dispcnt >> 13) != 0)
       {
-        if (windows_do_not_change_tile_line(dispcnt))
-        {
-          u8 window_out_enable = pIO_REG(REG_WINOUT) & 0x3F;
-
-          if (psp_fps_debug != 0)
-            prof_vid_winfast_lines++;
-
-          if (window_out_enable == 0x3F)
-          {
-            render_scanline_tile(screen_offset, dispcnt);
-          }
-          else
-          {
-            render_scanline_layer_functions_tile();
-            render_scanline_conditional_tile(0, 240, screen_offset, window_out_enable, dispcnt, pIO_REG(REG_BLDCNT), layer_renderers);
-          }
-        }
-        else
-        {
-          render_scanline_window_tile(screen_offset, dispcnt);
-        }
+        render_scanline_window_tile(screen_offset, dispcnt);
       }
       else
       {
