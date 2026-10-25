@@ -31,7 +31,7 @@ cd source
 
 echo "=== Building FrogGBA ==="
 echo "Cleaning previous build..."
-make clean || true
+echo "Incremental build"
 
 echo "Starting compilation..."
 make
