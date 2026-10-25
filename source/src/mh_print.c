@@ -12,93 +12,14 @@
 static void draw_char(s32 chr, u16 x, u16 y, u16 col, s16 bg_col, u16 *base_vram, u16 bufferwidth);
 
 /*****************************************************************************
-* Accented letters for the French UI. Control codes 1..31 (except '\n') are
-* drawn from glyphs generated at first use from the base letter plus a mark.
+* Latin letters of the menus. The font is chosen in the settings (option_font);
+* accented letters use control codes 1..31 (see ui_text.h).
 *****************************************************************************/
+#include "latin_fonts.c"
+
 #define ACCENT_IDX_BASE (0x1000)
 
-enum { ACC_ACUTE, ACC_GRAVE, ACC_CIRC, ACC_DIAER, ACC_CEDIL, ACC_CAP_ACUTE, ACC_CAP_GRAVE };
-
-static const struct { u8 code; u8 base; u8 mark; } accent_table[] =
-{
-  {  1, 'e', ACC_ACUTE },     /* e acute */
-  {  2, 'e', ACC_GRAVE },     /* e grave */
-  {  3, 'e', ACC_CIRC },      /* e circumflex */
-  {  4, 'a', ACC_GRAVE },     /* a grave */
-  {  5, 'a', ACC_CIRC },      /* a circumflex */
-  {  6, 'c', ACC_CEDIL },     /* c cedilla */
-  {  7, 'u', ACC_GRAVE },     /* u grave */
-  { 11, 'u', ACC_CIRC },      /* u circumflex */
-  { 12, 'o', ACC_CIRC },      /* o circumflex */
-  { 14, 'i', ACC_CIRC },      /* i circumflex */
-  { 15, 'i', ACC_DIAER },     /* i diaeresis */
-  { 16, 'E', ACC_CAP_ACUTE }, /* E acute */
-  { 17, 'E', ACC_CAP_GRAVE }, /* E grave */
-  { 18, 'A', ACC_CAP_GRAVE }, /* A grave */
-  { 19, 'e', ACC_DIAER },     /* e diaeresis */
-};
-
-static u8 accent_font[32 * 9];
-static u8 accent_font_ready = 0;
-
-/* A glyph is 12 rows of 6 bits packed MSB first; bit 5 of a row is the left pixel. */
-static void accent_set(u8 *rows, u32 row, const char *pattern)
-{
-  u32 x;
-  for (x = 0; x < 6; x++)
-    if (pattern[x] == '#')
-      rows[row] |= (u8)(0x20 >> x);
-}
-
-static void accent_init(void)
-{
-  u32 n, r, i;
-
-  memset(accent_font, 0, sizeof(accent_font));
-
-  for (n = 0; n < sizeof(accent_table) / sizeof(accent_table[0]); n++)
-  {
-    u8 rows[12];
-    const u8 *src = &shinonomefont[(accent_table[n].base - 0x20) * 9];
-    u32 bit = 0;
-
-    for (r = 0; r < 12; r++)
-    {
-      rows[r] = 0;
-      for (i = 0; i < 6; i++, bit++)
-        if (src[bit >> 3] & (0x80 >> (bit & 7)))
-          rows[r] |= (u8)(0x20 >> i);
-    }
-
-    switch (accent_table[n].mark)
-    {
-      case ACC_ACUTE:      accent_set(rows, 1, "...#.."); accent_set(rows, 2, "..#..."); break;
-      case ACC_GRAVE:      accent_set(rows, 1, ".#...."); accent_set(rows, 2, "..#..."); break;
-      case ACC_CIRC:
-        if (accent_table[n].base == 'i') rows[1] = 0;
-        accent_set(rows, 1, "..#..."); accent_set(rows, 2, ".#.#..");
-        break;
-      case ACC_DIAER:
-        if (accent_table[n].base == 'i') { rows[1] = 0; accent_set(rows, 1, ".#.#.."); }
-        else accent_set(rows, 2, ".#.#..");
-        break;
-      case ACC_CEDIL:      accent_set(rows, 10, "..#..."); accent_set(rows, 11, ".#...."); break;
-      case ACC_CAP_ACUTE:  accent_set(rows, 0, "...#.."); break;
-      case ACC_CAP_GRAVE:  accent_set(rows, 0, "..#..."); break;
-    }
-
-    {
-      u8 *dst = &accent_font[accent_table[n].code * 9];
-      bit = 0;
-      for (r = 0; r < 12; r++)
-        for (i = 0; i < 6; i++, bit++)
-          if (rows[r] & (0x20 >> i))
-            dst[bit >> 3] |= (u8)(0x80 >> (bit & 7));
-    }
-  }
-
-  accent_font_ready = 1;
-}
+u32 option_font = 0;
 
 static s32 idx_hankaku(u8 ch);
 static s32 idx_zenkaku(u8 hi, u8 lo);
@@ -122,11 +43,12 @@ static void draw_char(s32 chr, u16 x, u16 y, u16 col, s16 bg_col, u16 *base_vram
 
   if (chr >= ACCENT_IDX_BASE)
   {
-    if (!accent_font_ready)
-      accent_init();
-
-    font = accent_font;
+    font = latin_accent[option_font % LATIN_FONT_COUNT];
     chr -= ACCENT_IDX_BASE;
+  }
+  else if (chr < 95)
+  {
+    font = latin_ascii[option_font % LATIN_FONT_COUNT];
   }
 
   chr *= 9;

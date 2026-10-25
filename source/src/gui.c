@@ -26,6 +26,12 @@
 #define GPSP_CONFIG_NUM       (26 + 16) // options + game pad config + overlay options + aspect ratio + compatibility mode + button mapping + resume on boot + auto save state
 #define GPSP_GAME_CONFIG_NUM  (7 + 16)
 
+/* Extra settings packed in the spare last word of the config file (the file size must not change). */
+#define CONFIG_EXTRA_INDEX    (GPSP_CONFIG_NUM - 1)
+#define CONFIG_EXTRA_MAGIC    (0x5150)
+
+extern u32 option_font;
+
 #define COLOR_BG            COLOR15( 8, 15, 12)  // Soft mint green background
 #define COLOR_ROM_INFO      COLOR15(18, 28, 22)  // Darker mint for ROM info
 #define COLOR_ACTIVE_ITEM   COLOR15(31, 31, 29)  // Soft cream white for active items
@@ -1466,6 +1472,11 @@ u32 menu(void)
     MSG[MSG_LANG_JAPANESE], MSG[MSG_LANG_ENGLISH], UI(UI_LANG_FRENCH)
   };
 
+  const char *font_options[] =
+  {
+    "Fixed", "Terminus", "Spleen"
+  };
+
   const char *aspect_ratio_options[] =
   {
     "Core Provided (3:2)", "Zoom (Fill Screen)", "Stretch (Full PSP)"
@@ -1767,6 +1778,7 @@ u32 menu(void)
 	option_screen_capture_format = 0;
 	option_enable_analog = 0;
 	option_analog_sensitivity = 4;
+	option_font = 0;  // Fixed
 	
 	// Get system language setting
 	int id_language;
@@ -2265,6 +2277,7 @@ u32 menu(void)
     TAB_STRING(UI(UI_SYS_BIOS), UI(UI_D_BIOS), yes_no_options, &option_boot_mode, 2, 1),
     TAB_STRING(UI(UI_SYS_BACKUP), UI(UI_D_BACKUP), update_backup_options, &option_update_backup, 2, 2),
     TAB_SUBMENU(&saving_menu_global, UI(UI_SYS_SAVING), UI(UI_D_SAVING), 3),
+    TAB_STRING(UI(UI_SYS_FONT), UI(UI_D_FONT), font_options, &option_font, 3, 4),
     TAB_ACTION(UI(UI_SYS_DEFAULTS), UI(UI_D_DEFAULTS), ACT_DEFAULTS, 5),
     TAB_ACTION(UI(UI_SYS_QUIT), UI(UI_D_QUIT), ACT_QUIT, 6)
   };
@@ -3098,6 +3111,8 @@ s32 save_config_file(void)
       file_options[25 + i] = gamepad_config_map[i];
     }
 
+    file_options[CONFIG_EXTRA_INDEX] = (CONFIG_EXTRA_MAGIC << 8) | (option_font & 3);
+
     FILE_WRITE_ARRAY(config_file, file_options);
     FILE_CLOSE(config_file);
 
@@ -3228,6 +3243,10 @@ s32 load_config_file(void)
       option_resume_on_boot = file_options[23] % 2;  // 0 = Off, 1 = On
       option_auto_save_state = file_options[24] % 2; // 0 = Off, 1 = On
       
+      option_font = 0;  // Fixed, also for config files written before this setting existed
+      if ((file_options[CONFIG_EXTRA_INDEX] >> 8) == CONFIG_EXTRA_MAGIC)
+        option_font = (file_options[CONFIG_EXTRA_INDEX] & 3) % 3;
+
       // Update memory timing when loading config
       set_compatibility_mode(option_compatibility_mode);
 

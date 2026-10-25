@@ -31,6 +31,20 @@
 #define A_CAP_EGRAVE "\021"
 #define A_CAP_AGRAVE "\022"
 #define A_EDIAER   "\023"
+/* oe, OE, right single quote, guillemets, ellipsis */
+#define A_OE       "\024"
+#define A_CAP_OE   "\025"
+#define A_APOS     "\026"
+#define A_LGUILL   "\027"
+#define A_RGUILL   "\030"
+#define A_ELLIPSIS "\031"
+/* capital C cedilla, E circumflex, O circumflex, I circumflex, U grave, A circumflex */
+#define A_CAP_CCEDIL "\032"
+#define A_CAP_ECIRC  "\033"
+#define A_CAP_OCIRC  "\034"
+#define A_CAP_ICIRC  "\035"
+#define A_CAP_UGRAVE "\036"
+#define A_CAP_ACIRC  "\037"
 
 typedef enum
 {
@@ -69,6 +83,7 @@ typedef enum
   UI_PAD_MAPPING,
 
   UI_SYS_LANG,
+  UI_SYS_FONT,
   UI_SYS_BIOS,
   UI_SYS_BACKUP,
   UI_SYS_SAVING,
@@ -100,6 +115,7 @@ typedef enum
   UI_D_ANALOG,
   UI_D_MAPPING,
   UI_D_LANG,
+  UI_D_FONT,
   UI_D_BIOS,
   UI_D_BACKUP,
   UI_D_SAVING,
