@@ -4,8 +4,7 @@ A Game Boy Advance emulator for the PlayStation Portable, tuned for the original
 Based on FrogGBA, itself a mod of TempGBA / gpSP kai.
 
 <p align="center">
-  <img src="docs/screenshots/tab2_screen.png" width="410" alt="Screen settings tab">
-  <img src="docs/screenshots/tab5_system.png" width="410" alt="System settings tab">
+  <img src="docs/screenshots/settings-tour.gif" width="720" alt="Tour of the settings tabs: Game, Screen, Performance, Controls, System">
 </p>
 
 ## Features
