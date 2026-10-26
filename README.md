@@ -19,7 +19,7 @@ Based on FrogGBA, itself a mod of TempGBA / gpSP kai.
 
 ## Installation
 
-1. Copy the `FrogGBA` folder (with `EBOOT.PBP`) to `PSP/GAME/` on your memory stick. A custom firmware is required.
+1. Download the latest build from [Releases](../../releases) (currently a **beta**), unzip it and copy the `PSP` folder to the root of your memory stick. A custom firmware is required.
 2. Put your own `gba_bios.bin` and your game files in the same folder.
 3. Launch FrogGBA from the PSP game menu.
 
