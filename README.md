@@ -60,4 +60,10 @@ See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) (Docker based).
 - gameplaySP kai by Exophase and takka
 - FrogGBA by Prosty ([tzubertowski/FrogGBA](https://github.com/tzubertowski/FrogGBA))
 
+Bitmap fonts used by the interface (6x12, converted into `source/src/latin_fonts.c`):
+
+- **Fixed** — X11 *misc-fixed*, public domain
+- **Terminus** — Copyright (c) Dimitar Zhekov, [SIL Open Font License 1.1](https://openfontlicense.org/open-font-license-official-text/)
+- **Spleen** — Copyright (c) Frederic Cambus, [BSD 2-Clause License](https://github.com/fcambus/spleen/blob/master/LICENSE)
+
 This is a derivative work; see [LICENSE](LICENSE) for the terms. Game Boy Advance is a trademark of Nintendo, and this project is not affiliated with or endorsed by Nintendo or Sony.
