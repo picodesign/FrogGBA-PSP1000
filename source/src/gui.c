@@ -998,7 +998,7 @@ s32 load_file(const char **wildcards, char *result, char *default_dir_name)
       print_string(MSG[MSG_BROWSER_HELP], 30, 256, TAB_COLOR_DIM, BG_NO_FILL);
 
       // Show mod credit instead of ROM Buffer
-      print_string("FrogGBA - TempGBA mod by Prosty", 270, 256, TAB_COLOR_LINE, BG_NO_FILL);
+      print_string("FrogGBA - TempGBA mod by Prosty", 290, 256, TAB_COLOR_LINE, BG_NO_FILL);
 
       // PSP controller - hold
       if (get_pad_input(PSP_CTRL_HOLD) != 0)
@@ -2707,7 +2707,7 @@ u32 menu(void)
       }
 
       print_string(MSG[current_option->help_string], 30, 256, TAB_COLOR_DIM, BG_NO_FILL);
-      print_string("FrogGBA - TempGBA mod by Prosty", 270, 256, TAB_COLOR_LINE, BG_NO_FILL);
+      print_string("FrogGBA - TempGBA mod by Prosty", 290, 256, TAB_COLOR_LINE, BG_NO_FILL);
     }
 
     // PSP controller - hold
