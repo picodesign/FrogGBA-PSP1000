@@ -17,10 +17,34 @@ Based on FrogGBA, itself a mod of TempGBA / gpSP kai.
 - **Performance work for the PSP-1000** — larger recompiler cache, extra clock steps (383 / 403 / 423 MHz), profiling counters in the FPS overlay (SELECT + Square).
 - Overlays (borders), aspect ratio modes, save states, cheats and analog stick support from the original project.
 
+## Quickplay
+
+Pick up where you left off: the start screen shows your last game with a **Continue** button (resumes the auto save), a game browser and the options. It can be turned off in *System*.
+
+<p align="center">
+  <img src="docs/screenshots/quickplay.png" width="720" alt="Quickplay start screen in English and French">
+</p>
+
+## French interface
+
+The whole interface is available in French (*System > Language*), accents included.
+
+<p align="center">
+  <img src="docs/screenshots/screen_fr.png" width="560" alt="Screen settings in French">
+</p>
+
+## Fonts
+
+Three 6x12 bitmap fonts with real accents, selectable in *System > Font*: **Fixed** (default), **Terminus** and **Spleen**.
+
+<p align="center">
+  <img src="docs/screenshots/fonts.png" width="480" alt="The Fixed, Terminus and Spleen fonts">
+</p>
+
 ## Installation
 
 1. Download the latest build from [Releases](../../releases) (currently a **beta**), unzip it and copy the `PSP` folder to the root of your memory stick. A custom firmware is required.
-2. Put your own `gba_bios.bin` and your game files in the same folder.
+2. Put your own `gba_bios.bin` in `PSP/GAME/FrogGBA/` and your game files in `PSP/GAME/FrogGBA/roms/`.
 3. Launch FrogGBA from the PSP game menu.
 
 **No BIOS and no game is included in this repository.** You must use a BIOS and games that you legally own.
