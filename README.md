@@ -40,6 +40,16 @@ Changes aimed at the original PSP-1000 (480x272 screen):
 
 Settings are stored in the existing config file; configs from older versions keep working with default values for the new options.
 
+### Settings tour
+
+Screenshots taken from the menu (English interface). Switch tabs with **L / R**.
+
+| | |
+|---|---|
+| <img src="docs/screenshots/tab1_game.png" width="480"><br>**Game** — return to game, save/load states with slot details, screen capture, cheats, reset, load another game | <img src="docs/screenshots/tab2_screen.png" width="480"><br>**Screen** — scale mode, zoom, aspect ratio, filter (OFF / ON / SHARP), **LCD grid**, FPS counter, overlay borders |
+| <img src="docs/screenshots/tab3_perf.png" width="480"><br>**Performance** — CPU clock, frameskip, sound volume, compatibility mode, stack optimization | <img src="docs/screenshots/tab4_controls.png" width="480"><br>**Controls** — button assignment, analog stick, X/O button mapping |
+| <img src="docs/screenshots/tab5_system.png" width="480"><br>**System** — language (English / French), BIOS boot, backups, saving options, font, **Quickplay**, recent games list, restore defaults | |
+
 ## What's New in FrogGBA (Since v1.0)
 
 ### 🖼️ Overlay System (Enhanced in v0.2.2)
